@@ -1,9 +1,10 @@
 # ==========================================================
 # === Helper functions for data cleaning & preprocessing ===
 # ==========================================================
-import numpy as np
 import pandas as pd
+import numpy as np
 import re
+from datetime import datetime
 from lingua import Language, LanguageDetectorBuilder 
 
 def is_valid_lyrics(text):
@@ -66,3 +67,27 @@ def is_french(text):
     except:
         # If detection fails, return False
         return False
+    
+def extract_year(date_str):
+    """Extract year from various date formats."""
+    import datetime as dt  # Local import to avoid namespace conflicts
+    
+    if pd.isna(date_str) or not isinstance(date_str, str):
+        return np.nan
+    
+    # Try different date formats
+    formats = ['%Y-%m-%d', '%Y-%m', '%Y', '%d-%m-%Y', '%m-%d-%Y']
+    
+    for fmt in formats:
+        try:
+            date_obj = dt.datetime.strptime(date_str, fmt)
+            return date_obj.year
+        except ValueError:
+            continue
+    
+    # Try to extract just the year if it's in the string
+    year_match = re.search(r'(19|20)\d{2}', date_str)
+    if year_match:
+        return int(year_match.group())
+    
+    return np.nan
