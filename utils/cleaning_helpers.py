@@ -6,6 +6,7 @@ import numpy as np
 import re
 from datetime import datetime
 from lingua import Language, LanguageDetectorBuilder 
+from gensim.utils import simple_preprocess
 
 def is_valid_lyrics(text):
     """
@@ -33,28 +34,23 @@ detector = LanguageDetectorBuilder.from_languages(*languages).build()
 
 def clean_lyrics(text):
     """
-    Cleans the input text by performing the following operations
-    1. Removes any text within square brackets (e.g., [Intro], [Chorus]).:
+    Cleans the input text to fit the needs of gensim models by performing the following operations:
+    1. Removes any text within square brackets (e.g., [Intro], [Chorus]).
     2. Converts the text to lowercase.
     3. Removes special characters, punctuation, and numbers.
-    4. Removes extra whitespace.
+    4. Tokenizes the text into a list of lowercase words using gensim's simple_preprocess.
     Args:
-        text (str): The input text to be cleaned. If the input is not a string, an empty string is returned.
+        text (str): The input text to be cleaned. If the input is not a string, an empty list is returned.
     Returns:
-        str: The cleaned text with only lowercase letters and single spaces between words.
+        list: A list of cleaned, tokenized words suitable for gensim models.
     """
     if not isinstance(text, str):
-        return ""
+        return []
     # Remove text between square brackets (e.g., [Intro], [Chorus])
     text = re.sub(r'\[.*?\]', '', text)
-    # Convert to lowercase
-    text = text.lower()
-    # Remove special characters, numbers, etc.
-    text = re.sub(r'[^\w\s]', ' ', text)
-    text = re.sub(r'\d+', ' ', text)
-    # Remove extra whitespace
-    text = re.sub(r'\s+', ' ', text).strip()
-    return text
+    # Use gensim's simple_preprocess for tokenization and cleaning
+    tokens = simple_preprocess(text, deacc=True)  # deacc=True removes accents and special characters
+    return tokens
 
 def is_french(text):
     if not isinstance(text, str) or len(text.strip()) < 20:
