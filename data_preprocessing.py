@@ -72,6 +72,15 @@ def main():
     # Clean lyrics
     print("Cleaning lyrics...")
     songs_df['cleaned_lyrics'] = songs_df['lyrics'].apply(clean_lyrics)
+
+    # Remove songs with empty cleaned lyrics (list is empty)
+    songs_df = songs_df[songs_df['cleaned_lyrics'].apply(lambda x: len(x) > 0)]
+    print(f"Songs after cleaning lyrics: {len(songs_df)}")
+
+    # Remove duplicates based on 'cleaned_lyrics'
+    print("Removing duplicates...")
+    songs_df = songs_df.drop_duplicates(subset=['cleaned_lyrics'])
+    print(f"Songs after removing duplicates: {len(songs_df)}")
     
     # Filter for French lyrics only
     print("Detecting French lyrics...")
@@ -85,7 +94,15 @@ def main():
     print("Processing dates...")
     songs_df['year'] = songs_df['releaseDate'].apply(extract_year)
     songs_df = songs_df.dropna(subset=['year'])
-    songs_df['decade'] = ((songs_df['year'] // 10) * 10).astype(int).astype(str) + 's'
+    
+    # Combine decades 1990-2000 and 2000-2010 into a single category (to balance sizes of corpora)
+    def assign_decade(year):
+        if 1990 <= year < 2010:
+            return "1990s-2000s"
+        else:
+            return f"{(year // 10) * 10}s"
+    
+    songs_df['decade'] = songs_df['year'].apply(assign_decade)
     
     # Save the processed dataframe
     print("Saving processed data...")

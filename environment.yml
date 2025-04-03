@@ -12,6 +12,10 @@ dependencies:
   - requests
   - tqdm
   - matplotlib
+  - seaborn
+  - nltk
+  - wandb
+  - nbformat
   - pip
   - pip:
     - gensim==4.3.1

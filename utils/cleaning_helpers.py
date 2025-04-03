@@ -44,8 +44,6 @@ def clean_lyrics(text):
     Returns:
         list: A list of cleaned, tokenized words suitable for gensim models.
     """
-    if not isinstance(text, str):
-        return []
     # Remove text between square brackets (e.g., [Intro], [Chorus])
     text = re.sub(r'\[.*?\]', '', text)
     # Use gensim's simple_preprocess for tokenization and cleaning
