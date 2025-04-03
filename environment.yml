@@ -1,19 +1,18 @@
 name: nlp-summative
 channels:
-  - https://repo.anaconda.com/pkgs/main
-  - https://repo.anaconda.com/pkgs/r
   - conda-forge
+  - defaults
 dependencies:
   - python=3.10
   - numpy=1.24.3
-  - pandas=2.2.0
-  - scikit-learn=1.6.0
-  - scipy=1.12.0
-  - gensim=4.3.1
+  - pandas
+  - scikit-learn
+  - scipy=1.11.3
   - ipykernel
   - requests
   - tqdm
   - matplotlib
   - pip
   - pip:
+    - gensim==4.3.1
     - lingua-language-detector

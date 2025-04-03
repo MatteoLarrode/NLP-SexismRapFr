@@ -89,7 +89,9 @@ def main():
     
     # Save the processed dataframe
     print("Saving processed data...")
-    songs_df.to_csv("data/processed_french_rap_songs.csv", index=False)
+    # Save as pickle to preserve data types
+    songs_df.to_pickle("data/processed_french_rap_songs.pkl")
+
     
     # Print summary statistics
     print("\nData Processing Complete!")
@@ -99,8 +101,7 @@ def main():
         print(f"Number of songs by decade:")
         print(songs_df['decade'].value_counts().sort_index())
     
-    print("\nProcessed data saved to 'data/processed_french_rap_songs.csv'")
-
+    print("\nProcessed data saved to 'data/processed_french_rap_songs.pkl'")
 
 if __name__ == "__main__":
     main()
