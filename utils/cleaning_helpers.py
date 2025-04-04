@@ -47,7 +47,7 @@ def clean_lyrics(text):
     # Remove text between square brackets (e.g., [Intro], [Chorus])
     text = re.sub(r'\[.*?\]', '', text)
     # Use gensim's simple_preprocess for tokenization and cleaning
-    tokens = simple_preprocess(text, deacc=True)  # deacc=True removes accents and special characters
+    tokens = simple_preprocess(text, deacc=False)  # deacc=False prevents the removal of accents
     return tokens
 
 def is_french(text):

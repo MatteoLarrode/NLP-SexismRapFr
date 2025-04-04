@@ -1,0 +1,301 @@
+# ==========================================================
+# === Helper functions for validation of word embeddings ===
+# ==========================================================
+import requests
+import numpy as np
+from tqdm import tqdm
+import os
+import pandas as pd
+from collections import defaultdict
+
+def download_analogy_dataset(url):
+    """Download the analogy dataset without saving it to a file."""
+    response = requests.get(url)
+    if response.status_code == 200:
+        response.encoding = 'utf-8'  # Ensure proper handling of accents and special characters
+        return response.text
+    else:
+        print(f"Failed to download dataset: {response.status_code}")
+        return None
+
+def parse_analogy_dataset(data_text):
+    """Parse the analogy dataset into categories and questions."""
+    categories = defaultdict(list)
+    current_category = None
+    
+    for line in data_text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+            
+        if line.startswith(':'):
+            current_category = line[2:]  # Remove ': ' prefix
+        else:
+            if current_category:
+                words = line.split()
+                if len(words) == 4:  # Ensure valid analogy format
+                    categories[current_category].append(words)
+    
+    return categories
+
+def perform_analogy_test(model, a, b, c):
+    """
+    Perform the analogy test: a is to b as c is to ?
+    Using the 3CosAdd method: b - a + c
+    
+    Returns the predicted word and its similarity score.
+    """
+    try:
+        # Get the word vectors for the input words
+        vec_a = model.wv[a]
+        vec_b = model.wv[b]
+        vec_c = model.wv[c]
+        
+        # Compute the analogy vector
+        target_vec = vec_b - vec_a + vec_c
+        
+        # Find the most similar words to this vector
+        result = model.wv.similar_by_vector(target_vec, topn=10)
+        
+        # Filter out input words (a, b, c)
+        filtered_result = [(word, score) for word, score in result 
+                           if word.lower() not in [a.lower(), b.lower(), c.lower()]]
+        
+        # Return the top prediction
+        if filtered_result:
+            return filtered_result[0]
+        else:
+            return None
+    except KeyError:
+        # Handle case where one of the words is not in the vocabulary
+        return None
+    
+
+def evaluate_model_on_analogies(model, categories, verbose=True, save_correct=False):
+    """
+    Evaluate a model on all analogy categories.
+    Returns accuracy for each category and overall accuracy.
+    
+    Parameters:
+    - model: The Word2Vec model to evaluate
+    - categories: Dictionary of categories and their questions
+    - verbose: Whether to print progress
+    - save_correct: Whether to save correct analogies
+    """
+    results = {}
+    total_correct = 0
+    total_questions = 0
+    skipped_questions = 0
+    correct_analogies = []
+    
+    for category, questions in categories.items():
+        correct = 0
+        answered = 0
+        category_correct = []
+        
+        if verbose:
+            print(f"Evaluating category: {category}")
+            iterator = tqdm(questions)
+        else:
+            iterator = questions
+            
+        for a, b, c, expected in iterator:
+            # Skip if any word is not in the vocabulary
+            if not all(word in model.wv for word in [a, b, c, expected]):
+                skipped_questions += 1
+                continue
+                
+            prediction = perform_analogy_test(model, a, b, c)
+            
+            if prediction and prediction[0].lower() == expected.lower():
+                correct += 1
+                
+                # Save correct analogy if requested
+                if save_correct:
+                    category_correct.append({
+                        'analogy': f"{a} : {b} :: {c} : {expected}",
+                        'similarity_score': prediction[1]
+                    })
+            
+            answered += 1
+        
+        if answered > 0:
+            accuracy = correct / answered
+            results[category] = {
+                'accuracy': accuracy,
+                'answered': answered,
+                'correct': correct
+            }
+            
+            # Save correct analogies for this category
+            if save_correct and category_correct:
+                correct_analogies.append({
+                    'category': category,
+                    'examples': category_correct
+                })
+            
+            total_correct += correct
+            total_questions += answered
+            
+            if verbose:
+                print(f"  Accuracy: {accuracy:.4f} ({correct}/{answered})")
+        else:
+            results[category] = {
+                'accuracy': 0,
+                'answered': 0,
+                'correct': 0
+            }
+            
+            if verbose:
+                print("  No questions could be answered (words not in vocabulary)")
+    
+    # Calculate overall accuracy
+    overall_accuracy = total_correct / total_questions if total_questions > 0 else 0
+    
+    if verbose:
+        print(f"\nOverall accuracy: {overall_accuracy:.4f} ({total_correct}/{total_questions})")
+        print(f"Skipped questions: {skipped_questions}")
+    
+    return results, overall_accuracy, skipped_questions, correct_analogies
+
+def save_correct_analogies(correct_analogies, save_file):
+    """
+    Save correct analogies to a file.
+    
+    Parameters:
+    - correct_analogies: List of dictionaries with correct analogies
+    - save_file: Path to save the file
+    """
+    with open(save_file, 'w', encoding='utf-8') as f:
+        f.write("# Correct Analogies\n\n")
+        
+        for category_data in correct_analogies:
+            category = category_data['category']
+            examples = category_data['examples']
+            
+            f.write(f"## Category: {category}\n")
+            f.write(f"Total correct: {len(examples)}\n\n")
+            
+            for i, example in enumerate(examples):
+                f.write(f"{i+1}. {example['analogy']} (similarity: {example['similarity_score']:.4f})\n")
+            
+            f.write("\n" + "-" * 50 + "\n\n")
+    
+    print(f"Saved correct analogies to {save_file}")
+
+def evaluate_word_embeddings(models, dataset_url="https://dl.fbaipublicfiles.com/fasttext/word-analogies/questions-words-fr.txt", save_correct=False, results_dir="results"):
+    """
+    WRAPPER: Evaluate word embeddings using the analogy test.
+    Works with a single model or a dictionary of models.
+    
+    Parameters:
+    - models: A single Word2Vec model or a dictionary of models (key: model_name, value: model)
+    - dataset_url: URL of the analogy dataset
+    - save_correct: Whether to save correct analogies
+    - results_dir: Directory to save results
+    
+    Returns:
+    - For a single model: Dictionary with evaluation results
+    - For multiple models: DataFrame with comparison results
+    """        
+    # Download the dataset
+    print("Downloading analogy dataset...")
+    data_text = download_analogy_dataset(dataset_url)
+    
+    # Parse the dataset
+    categories = parse_analogy_dataset(data_text)
+    print(f"Parsed {len(categories)} categories with a total of {sum(len(q) for q in categories.values())} questions")
+    
+    # Check if we have a single model or a dictionary of models
+    if not isinstance(models, dict):
+        # Single model case
+        model = models
+        model_name = getattr(model, 'name', 'model')  # Use model.name if available, otherwise 'model'
+        
+        # Evaluate the model
+        print(f"\nEvaluating model: {model_name}")
+        results, overall_accuracy, skipped, correct_analogies = evaluate_model_on_analogies(
+            model, categories, verbose=True, save_correct=save_correct)
+        
+        # Save correct analogies if requested
+        if save_correct and correct_analogies:
+            save_file = f"{results_dir}/correct_analogies_{model_name}.md"
+            save_correct_analogies(correct_analogies, save_file)
+        
+        # Return results for single model
+        return {
+            'by_category': results,
+            'overall_accuracy': overall_accuracy,
+            'skipped_questions': skipped,
+            'correct_analogies': correct_analogies if save_correct else None
+        }
+    
+    else:
+        # Multiple models case
+        models_dict = models
+        results_list = []
+        
+        # Evaluate each model
+        for model_name, model in models_dict.items():
+            print(f"\nEvaluating model: {model_name}")
+            
+            # Evaluate model
+            results, overall_accuracy, skipped, correct_analogies = evaluate_model_on_analogies(
+                model, categories, verbose=False, save_correct=save_correct)
+            
+            # Save correct analogies if requested
+            if save_correct and correct_analogies:
+                save_file = f"{results_dir}/correct_analogies_{model_name}.md"
+                save_correct_analogies(correct_analogies, save_file)
+            
+            # Create a dictionary with model results
+            model_results = {
+                'Model': model_name,
+                'Overall_Accuracy': overall_accuracy,
+                'Skipped_Questions': skipped
+            }
+            
+            # Add results for each category
+            for category, data in results.items():
+                model_results[f"{category}"] = data['accuracy']
+            
+            # Add to results list
+            results_list.append(model_results)
+            
+            # Print brief summary
+            print(f"  Accuracy: {overall_accuracy:.4f}, Skipped: {skipped}")
+        
+        # Create DataFrame from results
+        results_df = pd.DataFrame(results_list)
+        
+        # Return DataFrame for multiple models
+        return results_df
+
+def get_best_and_worst_categories(results, n=3):
+    """
+    Get the best and worst performing categories.
+    
+    Parameters:
+    - results: Evaluation results dictionary
+    - n: Number of top/bottom categories to return
+    
+    Returns:
+    - Dictionary with best and worst categories
+    """
+    by_category = results['by_category']
+    
+    # Sort categories by accuracy
+    sorted_categories = sorted(
+        [(cat, data['accuracy'], data['correct'], data['answered']) 
+         for cat, data in by_category.items() if data['answered'] > 0],
+        key=lambda x: x[1],
+        reverse=True
+    )
+    
+    best_categories = sorted_categories[:n]
+    worst_categories = sorted_categories[-n:]
+    
+    return {
+        'best': best_categories,
+        'worst': worst_categories
+    }
