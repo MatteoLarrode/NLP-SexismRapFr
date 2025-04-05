@@ -3,14 +3,13 @@
 # ==========================================================
 import requests
 import numpy as np
+from scipy.stats import pearsonr, spearmanr
 from tqdm import tqdm
 import os
 import pandas as pd
 from collections import defaultdict
-from io import BytesIO
 
 # ===== Download and parse datasets =====
-
 def download_analogy_dataset(url):
     """Download the analogy dataset."""
     response = requests.get(url)
@@ -82,46 +81,84 @@ def parse_similarity_dataset(df):
     
     return similarity_dict
     
-
-
 # ===== Word similarity validation =====
-def calculate_model_similarity(model, word_pairs):
-    """Calculate cosine similarity between word pairs using the model."""
-    similarities = []
+def add_model_similarities(similarity_dict, model):
+    """
+    Add model-computed similarities to the dictionary.
+    
+    Args:
+        similarity_dict: Dictionary with (word1, word2) tuples as keys and expected similarity as values
+        model: Word2Vec model to evaluate
+        
+    Returns:
+        dict: Original dictionary with an additional tuple value containing 
+              (expected_similarity, model_similarity, in_vocab)
+    """
+    result_dict = {}
     missing_pairs = []
     
-    for pair in word_pairs:
-        # Split the French pair into individual words
-        words = pair.split('-')
-        if len(words) != 2:
-            # Handle cases where the delimiter might be different
-            if ' ' in pair:
-                words = pair.split(' ', 1)
-            else:
-                missing_pairs.append(pair)
-                similarities.append(np.nan)
-                continue
-        
-        word1, word2 = words
-        
+    for (word1, word2), expected_similarity in similarity_dict.items():
         # Check if both words are in the vocabulary
-        if word1 in model.wv and word2 in model.wv:
+        in_vocab = word1 in model.wv and word2 in model.wv
+        
+        if in_vocab:
             # Calculate cosine similarity
-            similarity = model.wv.similarity(word1, word2)
-            similarities.append(similarity)
+            model_similarity = model.wv.similarity(word1, word2)
+            result_dict[(word1, word2)] = (expected_similarity, model_similarity, True)
         else:
-            # If one or both words are not in vocab, mark as NaN
-            similarities.append(np.nan)
+            # If one or both words are not in vocab, mark as not in vocabulary
+            result_dict[(word1, word2)] = (expected_similarity, None, False)
             missing_words = []
             if word1 not in model.wv:
                 missing_words.append(word1)
             if word2 not in model.wv:
                 missing_words.append(word2)
-            missing_pairs.append(f"{pair} (missing: {', '.join(missing_words)})")
+            missing_pairs.append(f"({word1}, {word2}) - missing: {', '.join(missing_words)}")
     
-    return similarities, missing_pairs
+    # Print statistics about missing words
+    if missing_pairs:
+        print(f"Number of word pairs not in vocabulary: {len(missing_pairs)} / {len(similarity_dict)}")
+        print(f"Examples of missing pairs:")
+        for pair in missing_pairs[:5]:
+            print(f"  {pair}")
+        if len(missing_pairs) > 5:
+            print(f"  ... and {len(missing_pairs) - 5} more")
+    
+    return result_dict
 
-
+def validate_embeddings_on_similarities(result_dict):
+    """
+    Validate word embeddings by calculating correlation between expected and model similarities.
+    
+    Args:
+        result_dict: Dictionary with (word1, word2) tuples as keys and 
+                    (expected_similarity, model_similarity, in_vocab) as values
+        
+    Returns:
+        tuple: (pearson_corr, pearson_p, spearman_corr, spearman_p, valid_pairs, total_pairs)
+    """
+    # Extract pairs where both words are in the vocabulary
+    valid_pairs = [(expected, model) for (expected, model, in_vocab) in result_dict.values() 
+                  if in_vocab and not np.isnan(expected) and not np.isnan(model)]
+    
+    if len(valid_pairs) < 2:
+        print("Not enough valid pairs to calculate correlation.")
+        return None, None, None, None, 0, len(result_dict)
+    
+    # Split into expected and model similarities
+    expected_similarities = [pair[0] for pair in valid_pairs]
+    model_similarities = [pair[1] for pair in valid_pairs]
+    
+    # Calculate correlation metrics
+    pearson_corr, pearson_p = pearsonr(expected_similarities, model_similarities)
+    spearman_corr, spearman_p = spearmanr(expected_similarities, model_similarities)
+    
+    print(f"Evaluation results:")
+    print(f"Valid pairs: {len(valid_pairs)} / {len(result_dict)} ({len(valid_pairs)/len(result_dict)*100:.2f}%)")
+    print(f"Pearson correlation: {pearson_corr:.4f} (p-value: {pearson_p:.4f})")
+    print(f"Spearman correlation: {spearman_corr:.4f} (p-value: {spearman_p:.4f})")
+    
+    return pearson_corr, pearson_p, spearman_corr, spearman_p, len(valid_pairs), len(result_dict)
 
 # ===== Analogy validation =====
 def perform_analogy_test(model, a, b, c):
@@ -151,7 +188,6 @@ def perform_analogy_test(model, a, b, c):
         # Handle case where one of the words is not in the vocabulary
         return None
     
-
 def evaluate_model_on_analogies(model, categories, verbose=True, save_correct=False):
     """
     Evaluate a model on all analogy categories.
@@ -264,7 +300,7 @@ def save_correct_analogies(correct_analogies, save_file):
     
     print(f"Saved correct analogies to {save_file}")
 
-def evaluate_word_embeddings(models, dataset_url="https://dl.fbaipublicfiles.com/fasttext/word-analogies/questions-words-fr.txt", save_correct=False, results_dir="results"):
+def validate_word_embeddings_on_analogies(models, dataset_url="https://dl.fbaipublicfiles.com/fasttext/word-analogies/questions-words-fr.txt", save_correct=False, results_dir="results"):
     """
     WRAPPER: Evaluate word embeddings using the analogy test.
     Works with a single model or a dictionary of models.
