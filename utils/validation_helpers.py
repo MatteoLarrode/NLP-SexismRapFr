@@ -141,7 +141,7 @@ def evaluate_model_on_analogies(model, categories, verbose=True, save_correct=Fa
                 print(f"  Accuracy: {accuracy:.4f} ({correct}/{answered})")
         else:
             results[category] = {
-                'accuracy': 0,
+                'accuracy': None, # No questions answered
                 'answered': 0,
                 'correct': 0
             }
@@ -206,96 +206,46 @@ def evaluate_word_embeddings(models, dataset_url="https://dl.fbaipublicfiles.com
     categories = parse_analogy_dataset(data_text)
     print(f"Parsed {len(categories)} categories with a total of {sum(len(q) for q in categories.values())} questions")
     
-    # Check if we have a single model or a dictionary of models
     if not isinstance(models, dict):
-        # Single model case
         model = models
         model_name = getattr(model, 'name', 'model')  # Use model.name if available, otherwise 'model'
-        
-        # Evaluate the model
+        models = {model_name: model}
+    
+    # List to store results for all models
+    results_list = []
+    
+    # Evaluate each model
+    for model_name, model in models.items():
         print(f"\nEvaluating model: {model_name}")
+        
+        # Evaluate model (verbose only if we have a single model)
+        verbose = (len(models) == 1)
         results, overall_accuracy, skipped, correct_analogies = evaluate_model_on_analogies(
-            model, categories, verbose=True, save_correct=save_correct)
+            model, categories, verbose=verbose, save_correct=save_correct)
         
         # Save correct analogies if requested
         if save_correct and correct_analogies:
             save_file = f"{results_dir}/correct_analogies_{model_name}.md"
             save_correct_analogies(correct_analogies, save_file)
         
-        # Return results for single model
-        return {
-            'by_category': results,
-            'overall_accuracy': overall_accuracy,
-            'skipped_questions': skipped,
-            'correct_analogies': correct_analogies if save_correct else None
+        # Create a dictionary with model results
+        model_results = {
+            'Model': model_name,
+            'Overall_Accuracy': overall_accuracy,
+            'Skipped_Questions': skipped
         }
-    
-    else:
-        # Multiple models case
-        models_dict = models
-        results_list = []
         
-        # Evaluate each model
-        for model_name, model in models_dict.items():
-            print(f"\nEvaluating model: {model_name}")
-            
-            # Evaluate model
-            results, overall_accuracy, skipped, correct_analogies = evaluate_model_on_analogies(
-                model, categories, verbose=False, save_correct=save_correct)
-            
-            # Save correct analogies if requested
-            if save_correct and correct_analogies:
-                save_file = f"{results_dir}/correct_analogies_{model_name}.md"
-                save_correct_analogies(correct_analogies, save_file)
-            
-            # Create a dictionary with model results
-            model_results = {
-                'Model': model_name,
-                'Overall_Accuracy': overall_accuracy,
-                'Skipped_Questions': skipped
-            }
-            
-            # Add results for each category
-            for category, data in results.items():
-                model_results[f"{category}"] = data['accuracy']
-            
-            # Add to results list
-            results_list.append(model_results)
-            
-            # Print brief summary
-            print(f"  Accuracy: {overall_accuracy:.4f}, Skipped: {skipped}")
+        # Add category-specific results
+        for category, data in results.items():
+            model_results[f"{category}"] = data['accuracy']
         
-        # Create DataFrame from results
-        results_df = pd.DataFrame(results_list)
+        # Add to results list
+        results_list.append(model_results)
         
-        # Return DataFrame for multiple models
-        return results_df
-
-def get_best_and_worst_categories(results, n=3):
-    """
-    Get the best and worst performing categories.
+        # Print brief summary
+        print(f"  Accuracy: {overall_accuracy:.4f}, Skipped: {skipped}")
     
-    Parameters:
-    - results: Evaluation results dictionary
-    - n: Number of top/bottom categories to return
+    # Create DataFrame from results
+    results_df = pd.DataFrame(results_list)
     
-    Returns:
-    - Dictionary with best and worst categories
-    """
-    by_category = results['by_category']
-    
-    # Sort categories by accuracy
-    sorted_categories = sorted(
-        [(cat, data['accuracy'], data['correct'], data['answered']) 
-         for cat, data in by_category.items() if data['answered'] > 0],
-        key=lambda x: x[1],
-        reverse=True
-    )
-    
-    best_categories = sorted_categories[:n]
-    worst_categories = sorted_categories[-n:]
-    
-    return {
-        'best': best_categories,
-        'worst': worst_categories
-    }
+    return results_df
