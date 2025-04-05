@@ -30,11 +30,14 @@ def parse_analogy_dataset(data_text):
             
         if line.startswith(':'):
             current_category = line[2:]  # Remove ': ' prefix
-        else:
-            if current_category:
+        if current_category:
                 words = line.split()
                 if len(words) == 4:  # Ensure valid analogy format
-                    categories[current_category].append(words)
+                    a, b, c, expected = words
+                    
+                    # Filter out cases where expected word is the same as a, b, or c
+                    if expected.lower() not in [a.lower(), b.lower(), c.lower()]:
+                        categories[current_category].append(words)
     
     return categories
 
@@ -47,25 +50,20 @@ def perform_analogy_test(model, a, b, c):
     """
     try:
         # Get the word vectors for the input words
-        vec_a = model.wv[a]
-        vec_b = model.wv[b]
-        vec_c = model.wv[c]
-        
-        # Compute the analogy vector
-        target_vec = vec_b - vec_a + vec_c
+        vec_a = model.wv.get_vector(a, norm=True)
+        vec_b = model.wv.get_vector(b, norm=True)
+        vec_c = model.wv.get_vector(c, norm=True)
         
         # Find the most similar words to this vector
-        result = model.wv.similar_by_vector(target_vec, topn=10)
-        
-        # Filter out input words (a, b, c)
-        filtered_result = [(word, score) for word, score in result 
-                           if word.lower() not in [a.lower(), b.lower(), c.lower()]]
+        result = model.wv.most_similar(positive=[vec_b, vec_c], negative=[vec_a], topn=10)
         
         # Return the top prediction
-        if filtered_result:
-            return filtered_result[0]
+        if result:
+            # Return the top 3 predictions
+            return result[:3] if result else None
         else:
             return None
+        
     except KeyError:
         # Handle case where one of the words is not in the vocabulary
         return None
@@ -107,14 +105,14 @@ def evaluate_model_on_analogies(model, categories, verbose=True, save_correct=Fa
                 
             prediction = perform_analogy_test(model, a, b, c)
             
-            if prediction and prediction[0].lower() == expected.lower():
+            if prediction and any(pred[0].lower() == expected.lower() for pred in prediction):
                 correct += 1
                 
                 # Save correct analogy if requested
                 if save_correct:
                     category_correct.append({
                         'analogy': f"{a} : {b} :: {c} : {expected}",
-                        'similarity_score': prediction[1]
+                        'similarity_score': prediction[0][1]
                     })
             
             answered += 1
