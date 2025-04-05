@@ -7,9 +7,12 @@ from tqdm import tqdm
 import os
 import pandas as pd
 from collections import defaultdict
+from io import BytesIO
+
+# ===== Download and parse datasets =====
 
 def download_analogy_dataset(url):
-    """Download the analogy dataset without saving it to a file."""
+    """Download the analogy dataset."""
     response = requests.get(url)
     if response.status_code == 200:
         response.encoding = 'utf-8'  # Ensure proper handling of accents and special characters
@@ -17,6 +20,16 @@ def download_analogy_dataset(url):
     else:
         print(f"Failed to download dataset: {response.status_code}")
         return None
+    
+def download_similarity_dataset(url):
+    """Download the similarity dataset."""
+    response = requests.get(url)
+    if response.status_code != 200:
+        raise Exception(f"Failed to download dataset: {response.status_code}")
+    
+    # Load the Excel file into a pandas DataFrame
+    df = pd.read_excel(url)
+    return df
 
 def parse_analogy_dataset(data_text):
     """Parse the analogy dataset into categories and questions."""
@@ -41,6 +54,76 @@ def parse_analogy_dataset(data_text):
     
     return categories
 
+def parse_similarity_dataset(df):
+    """
+    Parse the similarity dataset into a dictionary format.
+    
+    Args:
+        df: Pandas DataFrame containing the similarity dataset
+        
+    Returns:
+        dict: Dictionary with (word1, word2) tuples as keys and expected similarity as values
+    """
+    similarity_dict = {}
+    
+    for _, row in df.iterrows():
+        word_pair = row['wordPairs']
+        similarity = row['MeanPairSimilarity']
+        
+        # Split the word pair by dash
+        words = word_pair.split('-')
+        
+        # Only process if we have exactly two words
+        if len(words) == 2:
+            word1, word2 = words[0].strip(), words[1].strip()
+            similarity_dict[(word1, word2)] = similarity
+        else:
+            print(f"Skipping word pair '{word_pair}' - could not parse properly")
+    
+    return similarity_dict
+    
+
+
+# ===== Word similarity validation =====
+def calculate_model_similarity(model, word_pairs):
+    """Calculate cosine similarity between word pairs using the model."""
+    similarities = []
+    missing_pairs = []
+    
+    for pair in word_pairs:
+        # Split the French pair into individual words
+        words = pair.split('-')
+        if len(words) != 2:
+            # Handle cases where the delimiter might be different
+            if ' ' in pair:
+                words = pair.split(' ', 1)
+            else:
+                missing_pairs.append(pair)
+                similarities.append(np.nan)
+                continue
+        
+        word1, word2 = words
+        
+        # Check if both words are in the vocabulary
+        if word1 in model.wv and word2 in model.wv:
+            # Calculate cosine similarity
+            similarity = model.wv.similarity(word1, word2)
+            similarities.append(similarity)
+        else:
+            # If one or both words are not in vocab, mark as NaN
+            similarities.append(np.nan)
+            missing_words = []
+            if word1 not in model.wv:
+                missing_words.append(word1)
+            if word2 not in model.wv:
+                missing_words.append(word2)
+            missing_pairs.append(f"{pair} (missing: {', '.join(missing_words)})")
+    
+    return similarities, missing_pairs
+
+
+
+# ===== Analogy validation =====
 def perform_analogy_test(model, a, b, c):
     """
     Perform the analogy test: a is to b as c is to ?

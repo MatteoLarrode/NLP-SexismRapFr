@@ -16,6 +16,7 @@ dependencies:
   - nltk
   - wandb
   - nbformat
+  - openpyxl
   - pip
   - pip:
     - gensim==4.3.1
