@@ -17,6 +17,7 @@ dependencies:
   - wandb
   - nbformat
   - openpyxl
+  - adjustText
   - pip
   - pip:
     - gensim==4.3.1
