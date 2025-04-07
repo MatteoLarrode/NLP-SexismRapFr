@@ -7,6 +7,7 @@ import matplotlib.font_manager as font_manager
 import seaborn as sns
 import pandas as pd
 from sklearn.manifold import TSNE
+from sklearn.cluster import KMeans
 from adjustText import adjust_text
 import numpy as np
 from nltk.corpus import stopwords
@@ -79,40 +80,39 @@ def plot_word_comparisons(models, base_word, comparison_words):
     plt.legend(title='Model')
     plt.show()
 
-def visualise_embeddings(model, n_words=500, random_state=42, perplexity=30, 
-                          categories=None, 
-                          word_list=None, save_path=None):
+def kmeans_cluster_embeddings(model, n_words=200, n_clusters=5, random_state=42, 
+                              word_list=None, save_path=None):
     """
-    Visualize word embeddings using t-SNE
+    Perform k-means clustering on word embeddings and visualize the results
     
     Parameters:
     -----------
     model : Word2Vec model
         The trained word2vec model
     n_words : int
-        Number of most frequent words to visualize
+        Number of most frequent words to include if word_list is not provided
+    n_clusters : int
+        Number of clusters for k-means
     random_state : int
         Random seed for reproducibility
-    perplexity : int
-        t-SNE perplexity parameter
-    categories : dict
-        Dictionary mapping category names to lists of words
-        Example: {'artists': ['mc_solaar', 'iam', 'ntz'], 'slang': ['flow', 'kickeur']}
     word_list : list
-        Specific list of words to visualize (overrides n_words)
+        Specific list of words to analyze (overrides n_words)
     save_path : str
         Path to save the visualization
+        
+    Returns:
+    --------
+    dict : Cluster information including words in each cluster
     """
     french_stopwords = set(stopwords.words('french'))
     filter_words = list(french_stopwords)
     
-    # Get words to visualize
+    # Get words to analyze
     if word_list is not None:
         # Use provided word list
-        words = [w for w in word_list if w in model.wv.key_to_index]
+        words = [w for w in word_list if w in model.wv.key_to_index and w not in filter_words]
     else:
-        # Get most common words - using the vocabulary instead of most_common
-        # Sort by frequency if available, otherwise just use the keys
+        # Get words from the model vocabulary
         if hasattr(model.wv, 'get_vecattr'):
             # For newer gensim versions
             word_freq = {word: model.wv.get_vecattr(word, 'count') 
@@ -130,72 +130,60 @@ def visualise_embeddings(model, n_words=500, random_state=42, perplexity=30,
     # Get word vectors
     word_vectors = np.array([model.wv[word] for word in words])
     
-    # Apply t-SNE
-    tsne = TSNE(n_components=2, random_state=random_state, perplexity=perplexity)
+    # Apply k-means clustering
+    kmeans = KMeans(n_clusters=n_clusters, random_state=random_state, n_init=10)
+    clusters = kmeans.fit_predict(word_vectors)
+    
+    # Apply t-SNE for visualization
+    tsne = TSNE(n_components=2, random_state=random_state, perplexity=min(30, len(words)//4), 
+                max_iter=2000, init='pca')
     coordinates = tsne.fit_transform(word_vectors)
-
-    # Apply custom style
-    set_visualization_style()
     
-    # Create figure
-    plt.figure(figsize=(12, 10))
+    # Create cluster information
+    cluster_info = {i: [] for i in range(n_clusters)}
+    for word, cluster_id in zip(words, clusters):
+        cluster_info[cluster_id].append(word)
     
-    # Create dataframe for plotting
+    # Create dataframe for visualization
     df = pd.DataFrame({
         'word': words,
         'x': coordinates[:, 0],
         'y': coordinates[:, 1],
-        'category': ['other'] * len(words)
+        'cluster': clusters
     })
     
-    # Update categories if provided
-    if categories is not None:
-        for category, category_words in categories.items():
-            mask = df['word'].isin(category_words)
-            df.loc[mask, 'category'] = category
+    # Visualize
+    set_visualization_style()
+    plt.figure(figsize=(12, 10))
     
-    # Get unique categories and ensure 'other' is at the end
-    unique_categories = sorted(df['category'].unique(), key=lambda x: x == 'other')
-    colors = cm.rainbow(np.linspace(0, 1, len(unique_categories)))
+    # Get cluster colors
+    colors = cm.rainbow(np.linspace(0, 1, n_clusters))
     
-    # Plot by category
+    # Plot each cluster
     texts = []
-    for i, category in enumerate(unique_categories):
-        mask = df['category'] == category
-        subset = df[mask]
-
-        # Format category for legend: capitalize and replace underscores with spaces
-        formatted_category = category.replace('_', ' ').capitalize()
-
-        # Set color: grey for general category, rainbow colors for others
-        if category == 'other':
-            point_color = 'grey'
-        else:
-            point_color = colors[i]
-        
-        # Plot points
-        plt.scatter(subset['x'], subset['y'], 
-                    c=[point_color], 
-                    label=formatted_category, 
+    for i in range(n_clusters):
+        cluster_df = df[df['cluster'] == i]
+        plt.scatter(cluster_df['x'], cluster_df['y'], 
+                    c=[colors[i]], 
+                    label=f"Cluster {i+1}", 
                     alpha=0.7)
         
         # Add text labels
-        for _, row in subset.iterrows():
+        for _, row in cluster_df.iterrows():
             texts.append(plt.text(row['x'], row['y'], row['word'], 
-                                  fontsize=11, alpha=0.8))
+                                 fontsize=9, alpha=0.8))
     
     # Adjust text to avoid overlap
     adjust_text(texts, arrowprops=dict(arrowstyle='->', color='black', lw=0.5))
-
-    # Add legend and labels with improved formatting
-    legend = plt.legend(loc='upper right', frameon=True, framealpha=0.9, fancybox=True)
+    
+    # Add legend with better formatting
+    legend = plt.legend(loc='upper right', frameon=True, framealpha=0.9, 
+                        fancybox=True, title="Clusters")
     legend.get_frame().set_edgecolor('lightgray')
     
-    # Add legend and labels
-    plt.title("t-SNE visualization of word embeddings")
     plt.xlabel("t-SNE dimension 1")
     plt.ylabel("t-SNE dimension 2")
-    plt.grid(True, linestyle='--', alpha=0.6)
+    plt.grid(True, linestyle='--', alpha=0.3)
 
     # Remove ticks
     plt.xticks([])
@@ -207,3 +195,5 @@ def visualise_embeddings(model, n_words=500, random_state=42, perplexity=30,
     
     plt.tight_layout()
     plt.show()
+    
+    return cluster_info
