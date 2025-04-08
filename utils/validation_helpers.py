@@ -7,6 +7,7 @@ from scipy.stats import pearsonr, spearmanr
 from tqdm import tqdm
 import os
 import pandas as pd
+import matplotlib.pyplot as plt
 from collections import defaultdict
 
 # ===== Download and parse datasets =====
@@ -19,16 +20,6 @@ def download_analogy_dataset(url):
     else:
         print(f"Failed to download dataset: {response.status_code}")
         return None
-    
-def download_similarity_dataset(url):
-    """Download the similarity dataset."""
-    response = requests.get(url)
-    if response.status_code != 200:
-        raise Exception(f"Failed to download dataset: {response.status_code}")
-    
-    # Load the Excel file into a pandas DataFrame
-    df = pd.read_excel(url)
-    return df
 
 def parse_analogy_dataset(data_text):
     """Parse the analogy dataset into categories and questions."""
@@ -53,31 +44,35 @@ def parse_analogy_dataset(data_text):
     
     return categories
 
-def parse_similarity_dataset(df):
+def create_similarity_dict(csv_path):
     """
-    Parse the similarity dataset into a dictionary format.
+    Creates a dictionary from the similarity CSV data where:
+    - Keys are tuples of French word pairs (mot1, mot2)
+    - Values are the human mean similarity ratings
     
     Args:
-        df: Pandas DataFrame containing the similarity dataset
+        csv_path (str): Path to the CSV file
         
     Returns:
-        dict: Dictionary with (word1, word2) tuples as keys and expected similarity as values
+        dict: Dictionary with word pairs as keys and similarity ratings as values
     """
-    similarity_dict = {}
+    # Read the CSV file
+    df = pd.read_csv(csv_path, header=0)
     
+    # Rename columns for clarity
+    df.columns = ['word1_en', 'word2_en', 'human_mean', 'mot1_fr', 'mot2_fr']
+
+    # Remove rows where mot1_fr and mot2_fr are the same
+    df = df[df['mot1_fr'] != df['mot2_fr']]
+    
+    # Create dictionary with French word pairs as keys and human mean as values
+    similarity_dict = {}
     for _, row in df.iterrows():
-        word_pair = row['wordPairs']
-        similarity = row['MeanPairSimilarity']
-        
-        # Split the word pair by dash
-        words = word_pair.split('-')
-        
-        # Only process if we have exactly two words
-        if len(words) == 2:
-            word1, word2 = words[0].strip(), words[1].strip()
-            similarity_dict[(word1, word2)] = similarity
-        else:
-            print(f"Skipping word pair '{word_pair}' - could not parse properly")
+        # Create tuple of French words as key
+        key = (row['mot1_fr'], row['mot2_fr'])
+        # Use human mean as value
+        value = row['human_mean']
+        similarity_dict[key] = value
     
     return similarity_dict
     
@@ -118,13 +113,8 @@ def add_model_similarities(similarity_dict, model):
     # Print statistics about missing words
     if missing_pairs:
         print(f"Number of word pairs not in vocabulary: {len(missing_pairs)} / {len(similarity_dict)}")
-        print(f"Examples of missing pairs:")
-        for pair in missing_pairs[:5]:
-            print(f"  {pair}")
-        if len(missing_pairs) > 5:
-            print(f"  ... and {len(missing_pairs) - 5} more")
     
-    return result_dict
+    return result_dict, missing_pairs
 
 def validate_embeddings_on_similarities(result_dict):
     """

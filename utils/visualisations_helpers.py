@@ -8,10 +8,10 @@ import seaborn as sns
 import pandas as pd
 from sklearn.manifold import TSNE
 from sklearn.cluster import KMeans
+from scipy.stats import pearsonr
 from adjustText import adjust_text
 import numpy as np
 from nltk.corpus import stopwords
-
 
 def set_visualization_style():
     plt.style.use('seaborn-v0_8-colorblind')
@@ -197,3 +197,66 @@ def kmeans_cluster_embeddings(model, n_words=200, n_clusters=5, random_state=42,
     plt.show()
     
     return cluster_info
+
+def plot_similarity_correlation(result_dict, save_path=None):
+    """
+    Plot the correlation between expected (ground truth) and model-computed similarities.
+    
+    Args:
+        result_dict: Dictionary with (word1, word2) tuples as keys and 
+                    (expected_similarity, model_similarity, in_vocab) as values
+        save_path: Path to save the figure (optional)
+    
+    Returns:
+        matplotlib figure object
+    """
+    # Extract pairs where both words are in the vocabulary
+    valid_pairs = [(expected, model, words) for words, (expected, model, in_vocab) in result_dict.items() 
+                  if in_vocab and not np.isnan(expected) and not np.isnan(model)]
+    
+    if len(valid_pairs) < 2:
+        print("Not enough valid pairs to create a correlation plot.")
+        return None
+    
+    # Split into expected and model similarities
+    expected_similarities = [pair[0] for pair in valid_pairs]
+    model_similarities = [pair[1] for pair in valid_pairs]
+    word_pairs = [pair[2] for pair in valid_pairs]
+    
+    # Calculate Pearson correlation for the plot
+    pearson_corr, p_value = pearsonr(expected_similarities, model_similarities)
+
+    # Use constim style
+    set_visualization_style()
+    
+    # Create the plot
+    plt.figure(figsize=(12, 6))
+    
+    # Create scatter plot
+    plt.scatter(expected_similarities, model_similarities, alpha=0.6)
+    
+    # Add regression line
+    slope, intercept = np.polyfit(expected_similarities, model_similarities, 1)
+    x_line = np.linspace(min(expected_similarities), max(expected_similarities), 100)
+    y_line = slope * x_line + intercept
+    plt.plot(x_line, y_line, color='red', linestyle='--')
+    
+    # Add correlation coefficient to the plot
+    plt.text(0.05, 0.95, f'Pearson r = {pearson_corr:.4f} (p = {p_value:.4f})', 
+             transform=plt.gca().transAxes, fontsize=12,
+             verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+    
+    # Add labels and title
+    plt.xlabel('Translated WordSim 353 Similarity')
+    plt.ylabel('Cosine Similarity')
+    
+    # Improve plot aesthetics
+    plt.tight_layout()
+
+    plt.show()
+    
+    # Save the plot if a path is provided
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    
+    return
