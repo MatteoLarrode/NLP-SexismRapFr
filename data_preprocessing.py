@@ -10,12 +10,7 @@ import argparse
 from tqdm import tqdm
 
 # Import helper functions
-from utils.cleaning_helpers import (
-    is_valid_lyrics,
-    clean_lyrics,
-    is_french,
-    extract_year,
-)
+from utils.preprocessing_helpers import *
 
 def main():
     """Main function to download and process data."""

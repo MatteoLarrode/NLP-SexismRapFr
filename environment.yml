@@ -18,6 +18,7 @@ dependencies:
   - nbformat
   - openpyxl
   - adjustText
+  - spacy
   - pip
   - pip:
     - gensim==4.3.1
