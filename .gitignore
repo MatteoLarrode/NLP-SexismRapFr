@@ -1,4 +1,1 @@
-# Ignore data too large for Github
-data/processed_french_rap_songs.pkl
-data/corpus/
 wandb/
