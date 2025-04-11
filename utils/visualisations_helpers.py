@@ -2,7 +2,6 @@
 # === Helper functions for data visualisation ===
 # ===============================================
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
 import matplotlib.font_manager as font_manager
 import seaborn as sns
 import pandas as pd

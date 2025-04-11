@@ -7,6 +7,7 @@ import os
 import json
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 from scipy.stats import pearsonr, spearmanr
 from tqdm import tqdm
 from collections import defaultdict
@@ -15,7 +16,8 @@ from sklearn.manifold import TSNE
 import matplotlib.colors as mcolors
 from adjustText import adjust_text
 from nltk.corpus import stopwords
-from visualisations_helpers import set_visualization_style
+
+from utils.visualisations_helpers import set_visualization_style
 
 # ===== Utility functions =====
 def load_model(model_dir):
@@ -76,7 +78,7 @@ def load_models_from_directory(base_dir='models'):
     return models
 
 # ===== Clustering and Visualization =====
-def kmeans_cluster_embeddings(model, n_words=200, n_clusters=5, random_state=42, 
+def kmeans_cluster_embeddings(model, n_words=200, n_clusters=5, random_state=35, 
                               word_list=None, save_path=None):
     """
     Perform k-means clustering on word embeddings and visualize the results
@@ -262,7 +264,7 @@ def add_model_similarities(similarity_dict, model):
     
     # Print statistics about missing words
     if missing_pairs:
-        print(f"Number of word pairs not in vocabulary: {len(missing_pairs)} / {len(similarity_dict)}")
+        print(f"Number of word pairs not in vocabulary: {len(missing_pairs)} / {len(similarity_dict)} ({len(missing_pairs)/len(similarity_dict)*100:.2f}%)")
     
     return result_dict, missing_pairs
 
@@ -294,7 +296,6 @@ def validate_embeddings_on_similarities(result_dict):
     spearman_corr, spearman_p = spearmanr(expected_similarities, model_similarities)
     
     print(f"Evaluation results:")
-    print(f"Valid pairs: {len(valid_pairs)} / {len(result_dict)} ({len(valid_pairs)/len(result_dict)*100:.2f}%)")
     print(f"Pearson correlation: {pearson_corr:.4f} (p-value: {pearson_p:.4f})")
     print(f"Spearman correlation: {spearman_corr:.4f} (p-value: {spearman_p:.4f})")
     
@@ -362,6 +363,54 @@ def plot_similarity_correlation(result_dict, save_path=None):
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
     
     return
+
+def validate_models_similarity_task(models):
+    """
+    Evaluate all models on word similarity task.
+    
+    Args:
+        models (dict): Dictionary of models to evaluate
+        results_dir (str): Directory to save results
+        
+    Returns:
+        pd.DataFrame: DataFrame with similarity results for all models
+    """    
+    # Load similarity dataset
+    similarity_dict = create_similarity_dict("data/wordsim353-fr.csv")
+    
+    # Results list for all models
+    results_list = []
+    
+    # Evaluate each model
+    for model_name, model in models.items():
+        print(f"\nEvaluating {model_name} on word similarity...")
+        
+        # Add model similarities
+        result_dict, missing_pairs = add_model_similarities(similarity_dict, model)
+        
+        # Validate embeddings
+        pearson_corr, pearson_p, spearman_corr, spearman_p, valid_pairs, total_pairs = validate_embeddings_on_similarities(result_dict)
+        
+        # Plot correlation if valid
+        if pearson_corr is not None:
+            plot_similarity_correlation(result_dict, save_path=f"figs/similarity_corr/{model_name}_similarity_correlation.png")
+        
+        # Add to results list
+        results_list.append({
+            'Model': model_name,
+            'Valid_Pairs': valid_pairs,
+            'Total_Pairs': total_pairs,
+            'Coverage': valid_pairs / total_pairs if total_pairs > 0 else 0,
+            'Pearson_Correlation': pearson_corr,
+            'Pearson_P_Value': pearson_p,
+            'Spearman_Correlation': spearman_corr,
+            'Spearman_P_Value': spearman_p
+        })
+    
+    # Create DataFrame
+    results_df = pd.DataFrame(results_list)
+    
+    return results_df
 
 # ===== Word Analogy Validation =====
 def download_analogy_dataset(url):
@@ -536,7 +585,7 @@ def save_correct_analogies(correct_analogies, save_file):
     
     print(f"Saved correct analogies to {save_file}")
 
-def validate_word_embeddings_on_analogies(models, dataset_url="https://dl.fbaipublicfiles.com/fasttext/word-analogies/questions-words-fr.txt", save_correct=False, results_dir="results"):
+def validate_models_analogy_task(models, save_correct=False, results_dir="results"):
     """
     WRAPPER: Evaluate word embeddings using the analogy test.
     Works with a single model or a dictionary of models.
@@ -552,6 +601,8 @@ def validate_word_embeddings_on_analogies(models, dataset_url="https://dl.fbaipu
     - For multiple models: DataFrame with comparison results
     """        
     # Download the dataset
+    dataset_url="https://dl.fbaipublicfiles.com/fasttext/word-analogies/questions-words-fr.txt"
+
     print("Downloading analogy dataset...")
     data_text = download_analogy_dataset(dataset_url)
     
@@ -571,14 +622,13 @@ def validate_word_embeddings_on_analogies(models, dataset_url="https://dl.fbaipu
     for model_name, model in models.items():
         print(f"\nEvaluating model: {model_name}")
         
-        # Evaluate model (verbose only if we have a single model)
-        verbose = (len(models) == 1)
+        # Evaluate model (no verbose)
         results, overall_accuracy, skipped, correct_analogies = evaluate_model_on_analogies(
-            model, categories, verbose=verbose, save_correct=save_correct)
+            model, categories, verbose=False, save_correct=save_correct)
         
         # Save correct analogies if requested
         if save_correct and correct_analogies:
-            save_file = f"{results_dir}/correct_analogies_{model_name}.md"
+            save_file = f"{results_dir}/correct_analogies/correct_analogies_{model_name}.md"
             save_correct_analogies(correct_analogies, save_file)
         
         # Create a dictionary with model results
@@ -602,3 +652,51 @@ def validate_word_embeddings_on_analogies(models, dataset_url="https://dl.fbaipu
     results_df = pd.DataFrame(results_list)
     
     return results_df
+
+def get_best_worst_categories(analogy_results_df, n=5):
+    """
+    Extract the best and worst performing categories from analogy results.
+    
+    Args:
+        analogy_results_df (pd.DataFrame): DataFrame with analogy results
+        n (int): Number of top and bottom categories to return
+        
+    Returns:
+        tuple: (best_categories, worst_categories) - Each is a list of tuples (category, accuracy)
+    """
+    if len(analogy_results_df) == 0:
+        print("Empty results DataFrame")
+        return [], []
+        
+    # Get all category columns
+    category_columns = [col for col in analogy_results_df.columns 
+                       if col not in ['Model', 'Overall_Accuracy', 'Skipped_Questions']]
+    
+    if not category_columns:
+        print("No category columns found in results")
+        return [], []
+    
+    # For a single model
+    if len(analogy_results_df) == 1:
+        # Get category accuracies from the single row, filtering out None values
+        categories_acc = [(cat, analogy_results_df.iloc[0][cat]) for cat in category_columns 
+                         if analogy_results_df.iloc[0][cat] is not None]
+    else:
+        # For multiple models, use the average accuracy across models
+        # First calculate the mean of each category, ignoring None values
+        category_means = {}
+        for cat in category_columns:
+            valid_values = [val for val in analogy_results_df[cat] if val is not None]
+            if valid_values:
+                category_means[cat] = sum(valid_values) / len(valid_values)
+        
+        categories_acc = list(category_means.items())
+    
+    # Sort by accuracy
+    sorted_categories = sorted(categories_acc, key=lambda x: x[1], reverse=True)
+    
+    # Get best and worst categories
+    best_categories = sorted_categories[:min(n, len(sorted_categories))]
+    worst_categories = sorted_categories[-min(n, len(sorted_categories)):]
+    
+    return best_categories, worst_categories
