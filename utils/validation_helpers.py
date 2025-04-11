@@ -653,50 +653,42 @@ def validate_models_analogy_task(models, save_correct=False, results_dir="result
     
     return results_df
 
-def get_best_worst_categories(analogy_results_df, n=5):
+def print_sorted_categories(analogy_results_df, model_name):
     """
-    Extract the best and worst performing categories from analogy results.
+    Print categories sorted by accuracy for a specific model's analogy results.
     
     Args:
         analogy_results_df (pd.DataFrame): DataFrame with analogy results
-        n (int): Number of top and bottom categories to return
-        
-    Returns:
-        tuple: (best_categories, worst_categories) - Each is a list of tuples (category, accuracy)
+        model_name (str): Name of the model to analyze
     """
     if len(analogy_results_df) == 0:
         print("Empty results DataFrame")
-        return [], []
+        return
         
+    # Check if the model exists in the results
+    if model_name not in analogy_results_df['Model'].values:
+        print(f"Model '{model_name}' not found in results")
+        return
+        
+    # Get the row for the specified model
+    model_row = analogy_results_df[analogy_results_df['Model'] == model_name].iloc[0]
+    
     # Get all category columns
     category_columns = [col for col in analogy_results_df.columns 
                        if col not in ['Model', 'Overall_Accuracy', 'Skipped_Questions']]
     
     if not category_columns:
         print("No category columns found in results")
-        return [], []
+        return
     
-    # For a single model
-    if len(analogy_results_df) == 1:
-        # Get category accuracies from the single row, filtering out None values
-        categories_acc = [(cat, analogy_results_df.iloc[0][cat]) for cat in category_columns 
-                         if analogy_results_df.iloc[0][cat] is not None]
-    else:
-        # For multiple models, use the average accuracy across models
-        # First calculate the mean of each category, ignoring None values
-        category_means = {}
-        for cat in category_columns:
-            valid_values = [val for val in analogy_results_df[cat] if val is not None]
-            if valid_values:
-                category_means[cat] = sum(valid_values) / len(valid_values)
-        
-        categories_acc = list(category_means.items())
+    # Get category accuracies from the model row, filtering out None values
+    categories_acc = [(cat, model_row[cat]) for cat in category_columns 
+                     if model_row[cat] is not None]
     
-    # Sort by accuracy
+    # Sort by accuracy (descending)
     sorted_categories = sorted(categories_acc, key=lambda x: x[1], reverse=True)
     
-    # Get best and worst categories
-    best_categories = sorted_categories[:min(n, len(sorted_categories))]
-    worst_categories = sorted_categories[-min(n, len(sorted_categories)):]
-    
-    return best_categories, worst_categories
+    # Print all categories in order
+    print(f"\nCategory Performance for model '{model_name}' (best to worst):")
+    for category, acc in sorted_categories:
+        print(f"  {category}: {acc:.4f}")
