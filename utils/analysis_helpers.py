@@ -27,7 +27,7 @@ target_words = {
         'Y': ['poésie', 'art', 'danse', 'littérature', 'chanson', 'peinture']
     },
     'B3_intel_appearance': {
-        'X': ['brillant','brillants', 'intelligent', 'intelligente', 'stratège', 'cerveau','sage', 'lucide', 'génie'],
+        'X': ['brillant','brillante', 'intelligent', 'intelligente', 'stratège', 'cerveau', 'sage', 'lucide', 'génie'],
         'Y': ['beau', 'belle', 'mince', 'moche', 'laid', 'laide', 'joli', 'jolie', 'maigre', 'gros', 'grosse', 'corps']
     },
     'B4_strength_weakness': {

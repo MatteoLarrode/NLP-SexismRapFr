@@ -301,7 +301,7 @@ def validate_embeddings_on_similarities(result_dict):
     
     return pearson_corr, pearson_p, spearman_corr, spearman_p, len(valid_pairs), len(result_dict)
 
-def plot_similarity_correlation(result_dict, save_path=None):
+def plot_similarity_correlation(result_dict, save_path=None, show_plot=True):
     """
     Plot the correlation between expected (ground truth) and model-computed similarities.
     
@@ -309,6 +309,7 @@ def plot_similarity_correlation(result_dict, save_path=None):
         result_dict: Dictionary with (word1, word2) tuples as keys and 
                     (expected_similarity, model_similarity, in_vocab) as values
         save_path: Path to save the figure (optional)
+        show_plot: Whether to display the plot (default: True)
     
     Returns:
         matplotlib figure object
@@ -356,7 +357,9 @@ def plot_similarity_correlation(result_dict, save_path=None):
     # Improve plot aesthetics
     plt.tight_layout()
 
-    plt.show()
+    # Show the plot if requested
+    if show_plot:
+        plt.show()
     
     # Save the plot if a path is provided
     if save_path:
@@ -364,7 +367,7 @@ def plot_similarity_correlation(result_dict, save_path=None):
     
     return
 
-def validate_models_similarity_task(models):
+def validate_models_similarity_task(models, show_plot=True):
     """
     Evaluate all models on word similarity task.
     
@@ -393,7 +396,7 @@ def validate_models_similarity_task(models):
         
         # Plot correlation if valid
         if pearson_corr is not None:
-            plot_similarity_correlation(result_dict, save_path=f"figs/similarity_corr/{model_name}_similarity_correlation.png")
+            plot_similarity_correlation(result_dict, save_path=f"figs/similarity_corr/{model_name}_similarity_correlation.png", show_plot=show_plot)
         
         # Add to results list
         results_list.append({
