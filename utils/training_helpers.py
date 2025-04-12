@@ -43,8 +43,8 @@ def train_word2vec(
     
     # Generate standardized model name
     algorithm = "skipgram" if sg == 1 else "cbow"
-    lemma_status = "lemma" if lemmatized else "raw"
-    model_name = f"frRap_{lemma_status}_{algorithm}_{vector_size}_{min_count}_{window}"
+    lemma_status = "lemma" if lemmatized else "non_lemma"
+    model_name = f"frRap_{lemma_status}_{algorithm}_{vector_size}_cut{min_count}_win{window}"
     
     # Create model-specific directory
     model_dir = os.path.join(output_dir, model_name)
