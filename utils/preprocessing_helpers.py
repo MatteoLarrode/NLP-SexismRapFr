@@ -122,54 +122,41 @@ def is_french(text):
         # If detection fails, return False
         return False
     
-def lemmatize_text(text):
-    """
-    Lemmatizes a single text using spaCy's French model.
-    
-    Args:
-        text (str): The input text to be lemmatized.
-        
-    Returns:
-        list: List of lemmatized tokens.
-    """
-    if not HAS_FRENCH_LEMMATIZER:
-        return []
-        
-    if not isinstance(text, str):
-        return []
-        
-    doc = nlp_fr(text.lower())
-    # Extract lemmas, filter out punctuation and short words
-    tokens = [token.lemma_ for token in doc 
-             if token.is_alpha and len(token.lemma_) > 2]
-    return tokens
+RE_BRACKETS = re.compile(r'\[.*?\]')
 
 def clean_text(text, lemmatize=False):
     """
-    Cleans the input text to fit the needs of gensim models.
-    
+    Cleans and preprocesses a given text string.
+    This function performs several preprocessing steps on the input text:
+    - Strips leading and trailing whitespace.
+    - Filters out texts shorter than 20 characters.
+    - Removes bracketed content such as [Chorus], [Verse], etc.
+    - Optionally lemmatizes the text if `lemmatize` is set to True and a French lemmatizer is available.
+    - Tokenizes the text using gensim's `simple_preprocess` if lemmatization is not applied.
     Args:
-        text (str): The input text to be cleaned.
-        lemmatize (bool): Whether to lemmatize the text or not.
-        
+        text (str): The input text to be cleaned and preprocessed.
+        lemmatize (bool, optional): Whether to lemmatize the text. Defaults to False.
     Returns:
-        list: A list of cleaned, tokenized words.
+        list: A list of tokens (words) from the cleaned and preprocessed text.
+              Returns an empty list if the input is not a string or if the text is too short.
     """
     if not isinstance(text, str):
         return []
-        
-    if len(text.strip()) < 20:
+
+    text = text.strip()
+    if len(text) < 20:
         return []
-        
-    # Remove text between square brackets (e.g., [Intro], [Chorus])
-    text = re.sub(r'\[.*?\]', '', text)
-    
+
+    # Remove bracketed content like [Chorus], [Verse], etc.
+    text = RE_BRACKETS.sub('', text)
+
     if lemmatize and HAS_FRENCH_LEMMATIZER:
-        return lemmatize_text(text)
-    else:
-        # Use gensim's simple_preprocess for tokenization and cleaning
-        tokens = simple_preprocess(text, deacc=False)  # deacc=False preserves accents
-        return tokens
+        # Lemmatize entire string at once
+        doc = nlp_fr(text.lower())
+        return [token.lemma_ for token in doc if token.is_alpha]
+    
+    # Otherwise, just tokenize with gensim
+    return simple_preprocess(text, deacc=False)
     
 def preprocess_corpus(texts, lemmatize=False, save_path=None):
     """
