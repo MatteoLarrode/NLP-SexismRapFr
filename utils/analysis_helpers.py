@@ -216,8 +216,11 @@ class GenderBiasWEATAnalyser:
         Returns:
         --------
         Tuple[float, float]
-            p-value and effect size
+            p-value, effect size
         """
+        # Set seed for reproducibility
+        np.random.seed(42)
+        
         # Filter words not in vocabulary
         X_in_vocab = [x for x in X if x in self.embeddings]
         Y_in_vocab = [y for y in Y if y in self.embeddings]
@@ -246,7 +249,7 @@ class GenderBiasWEATAnalyser:
         else:
             effect_size = np.nan
         
-        # For efficiency, we'll use a random sample of permutations instead of all possible permutations
+        # For efficiency, use a random sample of permutations instead of all possible permutations
         all_words = X_in_vocab + Y_in_vocab
         
         # Track permutation statistics
@@ -269,7 +272,7 @@ class GenderBiasWEATAnalyser:
     
     def analyse_all_categories(self, n_permutations: int = 1000) -> Dict:
         """
-        analyse all bias categories defined in the target_words dictionary using WEAT
+        Analyse all bias categories defined in the target_words dictionary using WEAT
         
         Parameters:
         -----------
@@ -279,12 +282,12 @@ class GenderBiasWEATAnalyser:
         Returns:
         --------
         Dict
-            Dictionary of results containing p-values and effect sizes
+            Dictionary of results containing p-values, effect sizes
         """
         results = {}
         
         for category, word_lists in target_words.items():
-            print(f"Analyzing category: {category}")
+            print(f"Analysing category: {category}")
             X, Y = word_lists['X'], word_lists['Y']
             A, B = attribute_words['M'], attribute_words['F']  # A=male, B=female in our context
             
