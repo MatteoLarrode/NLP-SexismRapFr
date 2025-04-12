@@ -19,31 +19,31 @@ attribute_words = {
 
 target_words = {
     'B1_career_family': {
-        'X_career': ['business', 'patron', 'patronne', 'money', 'travail', 'boss', 'cash', 'hustle', 'bureau', 'carrière'],
-        'Y_family': ['foyer', 'parents', 'maison', 'enfants', 'famille', 'mariage', 'domestique']
+        'X': ['business', 'patron', 'patronne', 'money', 'travail', 'boss', 'cash', 'hustle', 'bureau', 'carrière'],
+        'Y': ['foyer', 'parents', 'maison', 'enfants', 'famille', 'mariage', 'domestique']
     },
     'B2_mathsci_arts': {
-        'X_mathsci': ['calcul', 'logique', 'science', 'chiffres', 'physique', 'maths', 'chimie'],
-        'Y_arts': ['poésie', 'art', 'danse', 'littérature', 'chanson', 'peinture']
+        'X': ['calcul', 'logique', 'science', 'chiffres', 'physique', 'maths', 'chimie'],
+        'Y': ['poésie', 'art', 'danse', 'littérature', 'chanson', 'peinture']
     },
     'B3_intel_appearance': {
-        'X_intel': ['brillant','brillants', 'intelligent', 'intelligente', 'stratège', 'cerveau','sage', 'lucide', 'génie'],
-        'Y_appearance': ['beau', 'belle', 'mince', 'moche', 'laid', 'laide', 'joli', 'jolie', 'maigre', 'gros', 'grosse', 'corps']
+        'X': ['brillant','brillants', 'intelligent', 'intelligente', 'stratège', 'cerveau','sage', 'lucide', 'génie'],
+        'Y': ['beau', 'belle', 'mince', 'moche', 'laid', 'laide', 'joli', 'jolie', 'maigre', 'gros', 'grosse', 'corps']
     },
     'B4_strength_weakness': {
-        'X_strength': ['confiant','confiante', 'puissant', 'puissante', 'force', 'dominat', 'dominante', 'fort', 'forte'],
-        'Y_weakness': ['faible', 'fragile', 'timide' , 'doux' ,'douce', 'sensible', 'soumis', 'soumise', 'peur', 'vulnérable']
+        'X': ['confiant','confiante', 'puissant', 'puissante', 'force', 'dominat', 'dominante', 'fort', 'forte'],
+        'Y': ['faible', 'fragile', 'timide' , 'doux' ,'douce', 'sensible', 'soumis', 'soumise', 'peur', 'vulnérable']
     },
     'B5_status_love': {
-        'X_status': ['oseille', 'thune', 'francs', 'euros', 'dollars', 'bijoux', 'marques', 'luxe', 'rolex', 'chaine', 'fric'],
-        'Y_love': ['amour', 'sentiments', 'cœur', 'passion', 'fidèle', 'romantique', 'relation', 'aimer', 'émotions', 'attachement']
+        'X': ['oseille', 'thune', 'francs', 'euros', 'dollars', 'bijoux', 'marques', 'luxe', 'rolex', 'chaine', 'fric'],
+        'Y': ['amour', 'sentiments', 'cœur', 'passion', 'fidèle', 'romantique', 'relation', 'aimer', 'émotions', 'attachement']
     }
 }
 
 class GenderBiasWEATAnalyser:
     def __init__(self, embeddings, embedding_dimension = None):
         """
-        Initialize the analyzer with word embeddings
+        Initialize the analyser with word embeddings
         
         Parameters:
         -----------
@@ -100,7 +100,7 @@ class GenderBiasWEATAnalyser:
         raise TypeError("Embeddings must be a dict mapping words to vectors, "
                       "a gensim KeyedVectors object, or a Word2Vec model")
     
-    def cosine_similarity(self, word1: str, word2: str) -> floar:
+    def cosine_similarity(self, word1: str, word2: str) -> float:
         """
         Calculate the cosine similarity between two words
         
@@ -267,9 +267,9 @@ class GenderBiasWEATAnalyser:
         
         return p_value, effect_size
     
-    def analyze_all_categories(self, n_permutations: int = 1000) -> Dict:
+    def analyse_all_categories(self, n_permutations: int = 1000) -> Dict:
         """
-        Analyze all bias categories defined in the target_words dictionary using WEAT
+        analyse all bias categories defined in the target_words dictionary using WEAT
         
         Parameters:
         -----------
@@ -295,8 +295,8 @@ class GenderBiasWEATAnalyser:
                 'effect_size': effect_size,
                 'X_words': X,
                 'Y_words': Y,
-                'X_in_vocab': [x for x in X if x in self.model.wv],
-                'Y_in_vocab': [y for y in Y if y in self.model.wv],
+                'X_in_vocab': [x for x in X if x in self.embeddings],
+                'Y_in_vocab': [y for y in Y if y in self.embeddings],
                 'interpretation': self._get_interpretation(effect_size, p_value)
             }
             
@@ -337,12 +337,10 @@ class GenderBiasWEATAnalyser:
         
         if effect_size > 0:
             direction = "Category X words are more associated with male attributes"
-            strength = self._get_effect_strength(effect_size)
-            return f"{direction} ({strength} effect, {significance}, p={p_value:.4f})"
+            return f"{direction} (Effect size {effect_size}, {significance}, p={p_value:.4f})"
         else:
             direction = "Category Y words are more associated with male attributes"
-            strength = self._get_effect_strength(abs(effect_size))
-            return f"{direction} ({strength} effect, {significance}, p={p_value:.4f})"
+            return f"{direction} (Effect size {effect_size}, {significance}, p={p_value:.4f})"
         
     def generate_table_results(self) -> pd.DataFrame:
         """
@@ -354,7 +352,7 @@ class GenderBiasWEATAnalyser:
             Table of results
         """
         if not self.results:
-            print("No results available. Run analyze_all_categories() first.")
+            print("No results available. Run analyse_all_categories() first.")
             return None
         
         # Create a DataFrame with the results
