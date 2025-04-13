@@ -302,7 +302,7 @@ def display_gender_bias_compact_table(df, models=None, highlight_significant=Tru
     
     return markdown_table
 
-def plot_gender_WEAT(df, figsize=(12, 8), marker_size=100, p_threshold=0.05, 
+def plot_gender_bias(df, figsize=(12, 8), marker_size=100, p_threshold=0.05, 
                     significant_marker='*', show_legend=True):
     """
     Create a plot visualizing gender bias effect sizes across categories with significance markers.
@@ -396,31 +396,40 @@ def plot_gender_WEAT(df, figsize=(12, 8), marker_size=100, p_threshold=0.05,
     jitter_amount = 0.1
     
     # Plot each data point
-    for idx, row in plot_df.iterrows():
-        model = row['Model']
-        category = row['Category']
-        effect_size = row['Effect_Size']
-        significant = row['Significant']
+    for model in model_names:
+        model_data = plot_df[plot_df['Model'] == model]
         
-        # Add jitter to x-position based on model
-        model_idx = model_names.index(model)
-        x_pos = bias_categories.index(category) + 1
-        x_jitter = x_pos + jitter_amount * (model_idx - len(model_names)/2) / (len(model_names)/2)
-        
-        # Plot point
-        ax.scatter(x_jitter, effect_size, 
-                 color=color_map[model], 
-                 marker=marker_map[model],
-                 s=marker_size,
-                 alpha=0.8,
-                 label=model if idx == model_names.index(model) else "")
-        
-        # Add significance marker if significant
-        if significant:
-            ax.scatter(x_jitter, effect_size, 
-                     marker=significant_marker, 
-                     s=marker_size/2, 
-                     color='black')
+        for idx, row in model_data.iterrows():
+            category = row['Category']
+            effect_size = row['Effect_Size']
+            significant = row['Significant']
+            
+            # Add jitter to x-position based on model
+            model_idx = model_names.index(model)
+            x_pos = bias_categories.index(category) + 1
+            x_jitter = x_pos + jitter_amount * (model_idx - len(model_names)/2) / (len(model_names)/2)
+            
+            # Plot point - add label only once per model
+            if category == model_data['Category'].iloc[0]:
+                ax.scatter(x_jitter, effect_size, 
+                         color=color_map[model], 
+                         marker=marker_map[model],
+                         s=marker_size,
+                         alpha=0.8,
+                         label=model)
+            else:
+                ax.scatter(x_jitter, effect_size, 
+                         color=color_map[model], 
+                         marker=marker_map[model],
+                         s=marker_size,
+                         alpha=0.8)
+            
+            # Add significance marker if significant
+            if significant:
+                ax.scatter(x_jitter, effect_size, 
+                         marker=significant_marker, 
+                         s=marker_size/2, 
+                         color='black')
     
     # Add horizontal line at 0
     ax.axhline(y=0, color='black', linestyle='--', alpha=0.5)
@@ -433,7 +442,7 @@ def plot_gender_WEAT(df, figsize=(12, 8), marker_size=100, p_threshold=0.05,
     ax.set_xticks(range(1, len(bias_categories) + 1))
     ax.set_xticklabels([category_descriptions[cat] for cat in bias_categories], fontsize=10)
     
-    # Set the labels
+    # Set the labels (no title)
     ax.set_ylabel('WEAT Effect Size', fontsize=12)
     
     # Add note about significance marker
@@ -441,13 +450,17 @@ def plot_gender_WEAT(df, figsize=(12, 8), marker_size=100, p_threshold=0.05,
     
     # Add legend only for model markers if requested
     if show_legend:
-        # Generate a legend with custom labels
+        # Get current handles and labels
         handles, labels = ax.get_legend_handles_labels()
         
-        # Use the full model names in the legend
-        legend_labels = labels
-        ax.legend(handles, legend_labels, title="Models", loc='upper left', 
-                bbox_to_anchor=(1, 1), ncol=1)
+        # Place the legend inside the figure at the top
+        legend = ax.legend(handles, labels, 
+                         title="Models", 
+                         loc='upper center', 
+                         bbox_to_anchor=(0.5, -0.05),
+                         ncol=3,  # Adjust the number of columns as needed
+                         frameon=True,
+                         fontsize=9)
     
     # Adjust layout
     plt.tight_layout()
