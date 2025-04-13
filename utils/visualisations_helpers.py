@@ -433,9 +433,8 @@ def plot_gender_WEAT(df, figsize=(12, 8), marker_size=100, p_threshold=0.05,
     ax.set_xticks(range(1, len(bias_categories) + 1))
     ax.set_xticklabels([category_descriptions[cat] for cat in bias_categories], fontsize=10)
     
-    # Set the labels and title
+    # Set the labels
     ax.set_ylabel('WEAT Effect Size', fontsize=12)
-    ax.set_title('Gender Bias in Word Embeddings (WEAT Effect Sizes)', fontsize=14)
     
     # Add note about significance marker
     ax.text(0.02, 0.02, f"{significant_marker} = p < {p_threshold}", transform=ax.transAxes)
@@ -445,21 +444,8 @@ def plot_gender_WEAT(df, figsize=(12, 8), marker_size=100, p_threshold=0.05,
         # Generate a legend with custom labels
         handles, labels = ax.get_legend_handles_labels()
         
-        # Create shortened model names for the legend
-        short_names = {}
-        for model in model_names:
-            if 'frWac' in model:
-                short_name = 'frWac'
-            elif 'frRap' in model:
-                short_name = 'frRap'
-            elif 'frWiki' in model:
-                short_name = 'frWiki'
-            else:
-                short_name = model
-            short_names[model] = short_name
-        
-        # Replace full model names with short names in the legend
-        legend_labels = [short_names.get(label, label) for label in labels]
+        # Use the full model names in the legend
+        legend_labels = labels
         ax.legend(handles, legend_labels, title="Models", loc='upper left', 
                 bbox_to_anchor=(1, 1), ncol=1)
     
