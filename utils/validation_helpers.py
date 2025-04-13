@@ -356,14 +356,17 @@ def plot_similarity_correlation(result_dict, save_path=None, show_plot=True):
     
     # Improve plot aesthetics
     plt.tight_layout()
-
-    # Show the plot if requested
-    if show_plot:
-        plt.show()
     
     # Save the plot if a path is provided
     if save_path:
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
+
+    # Show the plot if requested
+    if show_plot:
+        plt.show()
+
+    else :
+        plt.close()
     
     return
 

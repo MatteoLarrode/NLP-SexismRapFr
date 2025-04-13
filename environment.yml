@@ -19,6 +19,7 @@ dependencies:
   - openpyxl
   - adjustText
   - spacy
+  - tabulate
   - pip
   - pip:
     - gensim==4.3.1
