@@ -337,15 +337,6 @@ def plot_gender_bias(df, figsize=(12, 8), marker_size=100, p_threshold=0.05,
     # Get bias categories
     bias_categories = raw_df.columns.tolist()
     
-    # Create category name mapping for x-axis labels
-    category_names = {
-        'B1_career_family': 'Career-Family',
-        'B2_mathsci_arts': 'Math/Science-Arts',
-        'B3_intel_appearance': 'Intelligence-Appearance', 
-        'B4_strength_weakness': 'Strength-Weakness',
-        'B5_status_love': 'Status-Love'
-    }
-    
     # Create a more detailed mapping for plot title
     category_descriptions = {
         'B1_career_family': 'Male-Career, Female-Family',
@@ -392,11 +383,35 @@ def plot_gender_bias(df, figsize=(12, 8), marker_size=100, p_threshold=0.05,
     # Set up markers for different models
     markers = ['o', 's', 'D', '^', 'v', '<', '>', 'p', '*', 'h', 'H', '+', 'x', 'X', 'd']
     marker_map = {model: markers[i % len(markers)] for i, model in enumerate(model_names)}
+
+    # First create a mapping to uniformly distribute points across each column
+    position_map = {}
     
-    # Jitter to avoid overlap
-    jitter_amount = 0.1
+    # For each category, calculate positions
+    for category in bias_categories:
+        # Get all models that have data for this category
+        models_in_category = []
+        for model in model_names:
+            model_data = plot_df[(plot_df['Model'] == model) & (plot_df['Category'] == category)]
+            if not model_data.empty:
+                models_in_category.append(model)
+        
+        # Calculate positions spread across the column
+        column_width = 0.8  # Width of the spread within column
+        n_models = len(models_in_category)
+        
+        for i, model in enumerate(models_in_category):
+            # If only one model, center it
+            if n_models == 1:
+                offset = 0
+            # Otherwise, distribute evenly
+            else:
+                offset = column_width * (i / (n_models - 1) - 0.5)
+            
+            # Store the position
+            position_map[(category, model)] = offset
     
-    # Plot each data point
+    # Now plot using the pre-calculated positions
     for model in model_names:
         model_data = plot_df[plot_df['Model'] == model]
         
@@ -405,10 +420,15 @@ def plot_gender_bias(df, figsize=(12, 8), marker_size=100, p_threshold=0.05,
             effect_size = row['Effect_Size']
             significant = row['Significant']
             
-            # Add jitter to x-position based on model
-            model_idx = model_names.index(model)
+            # Get the pre-calculated position offset
+            if (category, model) in position_map:
+                offset = position_map[(category, model)]
+            else:
+                offset = 0  # Fallback if no position calculated
+            
+            # Calculate final x-position
             x_pos = bias_categories.index(category) + 1
-            x_jitter = x_pos + jitter_amount * (model_idx - len(model_names)/2) / (len(model_names)/2)
+            x_jitter = x_pos + offset
             
             # Plot point - add label only once per model
             if category == model_data['Category'].iloc[0]:
