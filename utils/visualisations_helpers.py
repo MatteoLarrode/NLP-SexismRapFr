@@ -1,6 +1,7 @@
 # ===============================================
 # === Helper functions for data visualisation ===
 # ===============================================
+import os
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as font_manager
 import re
@@ -303,7 +304,7 @@ def display_gender_bias_compact_table(df, models=None, highlight_significant=Tru
     return markdown_table
 
 def plot_gender_bias(df, figsize=(12, 8), marker_size=100, p_threshold=0.05, 
-                    significant_marker='*', show_legend=True):
+                    significant_marker='*', show_legend=True, save_path=None):
     """
     Create a plot visualizing gender bias effect sizes across categories with significance markers.
     
@@ -464,5 +465,13 @@ def plot_gender_bias(df, figsize=(12, 8), marker_size=100, p_threshold=0.05,
     
     # Adjust layout
     plt.tight_layout()
+
+    # Save the figure if a save path is provided
+    if save_path is not None:
+        # Create directories if they don't exist
+        import os
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"Figure saved to {save_path}")
     
     return fig
