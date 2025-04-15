@@ -330,7 +330,7 @@ def plot_similarity_correlation(result_dict, save_path=None, show_plot=True):
     # Calculate Pearson correlation for the plot
     pearson_corr, p_value = pearsonr(expected_similarities, model_similarities)
 
-    # Use constim style
+    # Use constom style
     set_visualization_style()
     
     # Create the plot

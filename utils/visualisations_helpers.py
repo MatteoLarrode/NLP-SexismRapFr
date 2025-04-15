@@ -20,8 +20,8 @@ def set_visualization_style():
     plt.rcParams['font.family'] = 'sans-serif'
     plt.rcParams['font.sans-serif'] = prop.get_name()
     plt.rcParams.update({
-        'text.usetex': True,
-        'font.family': 'sans-serif',
+        'text.usetex': False,
+        #'font.family': 'serif',
         'axes.titlesize': 16,
         'axes.labelsize': 14,
         'xtick.labelsize': 12,
@@ -33,6 +33,8 @@ def set_visualization_style():
         'axes.grid': False, 
         'axes.spines.top': False,  # Remove top spine
         'axes.spines.right': False,  # Remove right spine
+        # Add this line to use ASCII hyphen instead of Unicode minus
+        'axes.unicode_minus': False
     })
 
 def display_similarity_results_table(df, sort_by='Pearson_Correlation', ascending=False, 
