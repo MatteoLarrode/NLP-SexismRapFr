@@ -169,7 +169,7 @@ def kmeans_cluster_embeddings(model, n_words=200, n_clusters=5, random_state=35,
         # Add text labels
         for _, row in cluster_df.iterrows():
             texts.append(plt.text(row['x'], row['y'], row['word'], 
-                                 fontsize=9, alpha=0.8))
+                                 fontsize=12, alpha=0.8))
     
     # Adjust text to avoid overlap
     adjust_text(texts, arrowprops=dict(arrowstyle='->', color='black', lw=0.5))
