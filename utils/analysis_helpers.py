@@ -6,9 +6,11 @@ import itertools
 from gensim.models import Word2Vec, KeyedVectors
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
 from scipy import stats
 import seaborn as sns
-from typing import List, Dict, Tuple
+from typing import List, Dict, Union, Optional, Tuple
+
 
 # ===== WEAT experiment =====
 # Define the attribute and target word lists for French rap
@@ -378,3 +380,173 @@ class GenderBiasWEATAnalyser:
         df = df.sort_values(['Significant', 'Effect Size'], ascending=[False, False])
         
         return df
+    
+    def visualize_permutation_tests(self, 
+        categories: List[str] = None,
+        n_permutations: int = 1000,
+        save_path: Optional[str] = None,
+        figsize: Tuple[int, int] = (15, 10),
+        kde: bool = True,
+        hist: bool = True,
+        significance_level: float = 0.05):
+        """
+        Create a visualization of permutation test distributions for selected categories.
+        
+        Parameters:
+        -----------
+        save_path : str,
+            Path to save the figure
+        categories : List[str], optional
+            List of categories to visualize. If None, uses all categories in target_words
+        n_permutations : int, optional
+            Number of permutations to perform (default: 1000)
+        figsize : Tuple[int, int], optional
+            Figure size
+        kde : bool, optional
+            Whether to show kernel density estimate curve
+        hist : bool, optional
+            Whether to show histogram
+        significance_level : float, optional
+            Alpha level for significance (default: 0.05)
+            
+        Returns:
+        --------
+        matplotlib.figure.Figure
+            The figure object
+        """
+        # Get categories from target_words if not specified
+        if categories is None:
+            categories = list(target_words.keys())
+        
+        # Determine grid layout
+        n_categories = len(categories)
+        n_cols = min(3, n_categories)
+        n_rows = (n_categories + n_cols - 1) // n_cols
+        
+        # Create figure
+        fig = plt.figure(figsize=figsize)
+        gs = GridSpec(n_rows, n_cols, figure=fig)
+        
+        # Set seaborn style
+        sns.set_style("whitegrid")
+        
+        # Track the maximum y-value for axis scaling
+        max_density = 0
+        
+        # Process each category
+        for i, category in enumerate(categories):
+            # Get row and column for subplot
+            row = i // n_cols
+            col = i % n_cols
+            ax = fig.add_subplot(gs[row, col])
+            
+            # Get word lists for this category
+            X = target_words[category]['X']
+            Y = target_words[category]['Y']
+            A = attribute_words['M']
+            B = attribute_words['F']
+            
+            # Filter words not in vocabulary
+            X_in_vocab = [x for x in X if x in self.embeddings]
+            Y_in_vocab = [y for y in Y if y in self.embeddings]
+            
+            # Calculate the observed test statistic
+            observed_stat = self.test_statistic(X_in_vocab, Y_in_vocab, A, B)
+            
+            # Generate null distribution through permutation
+            all_words = X_in_vocab + Y_in_vocab
+            n_X = len(X_in_vocab)
+            
+            # Set seed for reproducibility
+            np.random.seed(42)
+            
+            # Perform permutations and collect test statistics
+            perm_stats = []
+            for _ in range(n_permutations):
+                np.random.shuffle(all_words)
+                X_i = all_words[:n_X]
+                Y_i = all_words[n_X:]
+                perm_stat = self.test_statistic(X_i, Y_i, A, B)
+                perm_stats.append(perm_stat)
+            
+            # Calculate p-value
+            p_value = np.mean([stat > observed_stat for stat in perm_stats])
+            
+            # Create the histogram/kde plot
+            if hist and kde:
+                sns.histplot(perm_stats, kde=True, ax=ax, color='gray', alpha=0.6, stat='density')
+            elif hist:
+                sns.histplot(perm_stats, kde=False, ax=ax, color='gray', alpha=0.6, stat='density')
+            elif kde:
+                sns.kdeplot(perm_stats, ax=ax, color='gray', fill=True, alpha=0.6)
+            
+            # Add vertical line for observed statistic
+            if p_value < significance_level:
+                line_color = 'red'
+                significant = "significant"
+            else:
+                line_color = 'blue'
+                significant = "not significant"
+                
+            ax.axvline(x=observed_stat, color=line_color, linestyle='-', linewidth=2, 
+                    label=f'Observed statistic\n(p={p_value:.3f}, {significant})')
+            
+            # Add shaded area for p-value region
+            if observed_stat > np.median(perm_stats):  # Right-tailed test
+                x_fill = np.linspace(observed_stat, max(perm_stats) * 1.1, 100)
+                try:
+                    y_fill = ax.get_lines()[0].get_ydata()[-len(x_fill):]
+                    ax.fill_between(x_fill, y_fill, alpha=0.2, color=line_color)
+                except:
+                    # Fallback if KDE line isn't available
+                    pass
+            else:  # Left-tailed test
+                x_fill = np.linspace(min(perm_stats) * 1.1, observed_stat, 100)
+                try:
+                    y_fill = ax.get_lines()[0].get_ydata()[:len(x_fill)]
+                    ax.fill_between(x_fill, y_fill, alpha=0.2, color=line_color)
+                except:
+                    # Fallback if KDE line isn't available
+                    pass
+            
+            # Update plot title and labels
+            ax.set_title(f'{category}', fontsize=12, fontweight='bold')
+            ax.set_xlabel('Test Statistic', fontsize=10)
+            if col == 0:  # Only add y-label for leftmost plots
+                ax.set_ylabel('Density', fontsize=10)
+            
+            # Add legend
+            ax.legend(loc='upper right', frameon=True, fontsize=8)
+            
+            # Track max density for consistent y-axis
+            if ax.get_ylim()[1] > max_density:
+                max_density = ax.get_ylim()[1]
+        
+        # Set consistent y-axis limits
+        for i in range(n_categories):
+            ax = fig.axes[i]
+            ax.set_ylim(0, max_density * 1.1)
+        
+        # Add overall title
+        plt.suptitle('Permutation Test Distributions by Category', fontsize=16, fontweight='bold', y=0.98)
+        
+        # Add explanatory subtitle
+        fig.text(0.5, 0.94, 
+                'Distribution of test statistics under the null hypothesis with observed values shown as vertical lines.\n'
+                'Red lines indicate statistically significant results (p < 0.05).',
+                ha='center', fontsize=12)
+        
+        # Add data description at bottom
+        n_permutations_text = f'Based on {n_permutations} permutations per category'
+        fig.text(0.5, 0.01, n_permutations_text, ha='center', fontsize=10)
+        
+        # Adjust layout
+        plt.tight_layout(rect=[0, 0.02, 1, 0.92])
+        
+        # Save
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"Figure saved to {save_path}")
+        
+        plt.close()
+        
+        return

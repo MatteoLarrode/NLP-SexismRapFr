@@ -116,10 +116,6 @@ def display_similarity_results_table(df, sort_by='Pearson_Correlation', ascendin
     # Return the markdown table
     return markdown_table
 
-import pandas as pd
-import numpy as np
-from IPython.display import display, Markdown
-
 def display_analogy_category_table(df, top_n_models=None, precision=1, 
                                   sort_by='Overall_Accuracy', ascending=False,
                                   selected_categories=None):
