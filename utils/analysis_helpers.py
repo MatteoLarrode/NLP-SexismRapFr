@@ -491,24 +491,6 @@ class GenderBiasWEATAnalyser:
             ax.axvline(x=observed_stat, color=line_color, linestyle='-', linewidth=2, 
                     label=f'Observed statistic\n(p={p_value:.3f}, {significant})')
             
-            # Add shaded area for p-value region
-            if observed_stat > np.median(perm_stats):  # Right-tailed test
-                x_fill = np.linspace(observed_stat, max(perm_stats) * 1.1, 100)
-                try:
-                    y_fill = ax.get_lines()[0].get_ydata()[-len(x_fill):]
-                    ax.fill_between(x_fill, y_fill, alpha=0.2, color=line_color)
-                except:
-                    # Fallback if KDE line isn't available
-                    pass
-            else:  # Left-tailed test
-                x_fill = np.linspace(min(perm_stats) * 1.1, observed_stat, 100)
-                try:
-                    y_fill = ax.get_lines()[0].get_ydata()[:len(x_fill)]
-                    ax.fill_between(x_fill, y_fill, alpha=0.2, color=line_color)
-                except:
-                    # Fallback if KDE line isn't available
-                    pass
-            
             # Update plot title and labels
             ax.set_title(f'{category}', fontsize=12, fontweight='bold')
             ax.set_xlabel('Test Statistic', fontsize=10)
@@ -526,15 +508,6 @@ class GenderBiasWEATAnalyser:
         for i in range(n_categories):
             ax = fig.axes[i]
             ax.set_ylim(0, max_density * 1.1)
-        
-        # Add overall title
-        plt.suptitle('Permutation Test Distributions by Category', fontsize=16, fontweight='bold', y=0.98)
-        
-        # Add explanatory subtitle
-        fig.text(0.5, 0.94, 
-                'Distribution of test statistics under the null hypothesis with observed values shown as vertical lines.\n'
-                'Red lines indicate statistically significant results (p < 0.05).',
-                ha='center', fontsize=12)
         
         # Add data description at bottom
         n_permutations_text = f'Based on {n_permutations} permutations per category'
