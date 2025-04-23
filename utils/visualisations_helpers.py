@@ -217,6 +217,130 @@ def display_analogy_category_table(df, top_n_models=None, precision=1,
     
     return markdown_table
 
+def plot_gendered_average_similarity_by_model(similarity_df, save_path=None):
+    """
+    Plot average cosine similarity between gendered word pairs for each model.
+    
+    Parameters:
+    -----------
+    similarity_df : pd.DataFrame
+        DataFrame with similarity scores (output from compare_gendered_word_similarities)
+    save_path : str, optional
+        Path to save the figure
+        
+    Returns:
+    --------
+    plt.Figure
+        The figure object
+    """
+    set_visualization_style()
+    
+    plt.figure(figsize=(12, 6))
+    
+    # Calculate average similarity per model and sort by similarity
+    model_avgs = similarity_df.groupby('model')['similarity'].mean().reset_index()
+    model_avgs = model_avgs.sort_values('similarity', ascending=False)
+    
+    # Create the bar plot with sorted models
+    ax = sns.barplot(x='model', y='similarity', data=model_avgs, order=model_avgs['model'])
+    
+    # Add data labels on top of bars
+    for i, row in enumerate(model_avgs.itertuples()):
+        ax.text(i, row.similarity + 0.02, f"{row.similarity:.3f}", 
+                ha='center', va='bottom', fontsize=9)
+    
+    # Add reference line for typical threshold of 0.5
+    plt.axhline(y=0.5, color='red', linestyle='--', alpha=0.7, label='0.5 threshold')
+    
+    # Styling
+    plt.xlabel('Model', fontsize=14)
+    plt.ylabel('Average Cosine Similarity', fontsize=14)
+    plt.xticks(rotation=45, ha='right')
+    plt.ylim(0, 1.0)
+    plt.legend()
+    plt.tight_layout()
+    
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"Figure saved to {save_path}")
+
+    plt.show()
+    
+    return 
+
+def plot_gendered_similarity_by_pair(similarity_df, top_n=None, save_path=None):
+    """
+    Plot cosine similarity for each gendered word pair across models.
+    
+    Parameters:
+    -----------
+    similarity_df : pd.DataFrame
+        DataFrame with similarity scores (output from compare_gendered_word_similarities)
+    top_n : int, optional
+        If provided, show only the top N pairs with highest variation across models
+    save_path : str, optional
+        Path to save the figure
+        
+    Returns:
+    --------
+    plt.Figure
+        The figure object
+    """
+    set_visualization_style()
+    
+    # Calculate statistics for each pair and sort
+    pair_stats = similarity_df.groupby('pair')['similarity'].agg(['mean', 'std']).reset_index()
+    
+    # Sort by std first (if looking at top_n variations) or by mean (for overall view)
+    if top_n is not None:
+        pair_stats = pair_stats.sort_values('std', ascending=False)
+        sort_column = 'std'
+        sort_label = "highest variation"
+    else:
+        pair_stats = pair_stats.sort_values('mean', ascending=False)
+        sort_column = 'mean'
+        sort_label = "highest similarity"
+    
+    # Select pairs to show
+    if top_n is not None and top_n < len(pair_stats):
+        pairs_to_show = pair_stats.head(top_n)['pair'].tolist()
+        plot_data = similarity_df[similarity_df['pair'].isin(pairs_to_show)]
+    else:
+        pairs_to_show = pair_stats['pair'].tolist()
+        plot_data = similarity_df
+    
+    # Determine figure size based on number of pairs
+    n_pairs = len(pairs_to_show)
+    fig_width = max(10, min(18, n_pairs * 1.2))
+    
+    plt.figure(figsize=(fig_width, 8))
+    
+    # Create bar plot for each pair across models, ordered by the statistics
+    ax = sns.barplot(x='pair', y='similarity', hue='model', data=plot_data, 
+                    order=pairs_to_show)
+    
+    # Styling
+    plt.xlabel('Gendered Word Pair', fontsize=14)
+    plt.ylabel('Cosine Similarity', fontsize=14)
+    plt.xticks(rotation=45, ha='right')
+    plt.ylim(0, 1.0)
+    
+    # Add reference line for typical threshold of 0.5
+    plt.axhline(y=0.5, color='red', linestyle='--', alpha=0.7, label='0.5 threshold')
+    
+    # Adjust legend
+    plt.legend(title='Model', bbox_to_anchor=(1.05, 1), loc='upper left')
+    
+    plt.tight_layout()
+    
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"Figure saved to {save_path}")
+
+    plt.show()
+
+    return
+
 def display_gender_bias_compact_table(df, models=None, highlight_significant=True, 
                                      p_threshold=0.05, precision=3):
     """

@@ -11,37 +11,9 @@ from scipy import stats
 import seaborn as sns
 from typing import List, Dict, Union, Optional, Tuple
 
+from utils.word_choice_helpers import attribute_words, target_words
 
 # ===== WEAT experiment =====
-# Define the attribute and target word lists for French rap
-attribute_words = {
-    'M': ['homme', 'mec', 'gars', 'frère', 'il', 'lui', 'son', 'fils', 'père', 'oncle', 'grand-père', 'mâle', 'king', 'bro', 'kho'],
-    'F': ['femme', 'meuf', 'fille', 'sœur', 'elle', 'sa', 'fille', 'mère', 'tante', 'grand-mère', 'gazelle', 'go', 'miss', 'bae']
-}
-
-target_words = {
-    'B1_career_family': {
-        'X': ['business', 'patron', 'patronne', 'money', 'travail', 'boss', 'cash', 'hustle', 'bureau', 'carrière'],
-        'Y': ['foyer', 'parents', 'maison', 'enfants', 'famille', 'mariage', 'domestique']
-    },
-    'B2_mathsci_arts': {
-        'X': ['calcul', 'logique', 'science', 'chiffres', 'physique', 'maths', 'chimie'],
-        'Y': ['poésie', 'art', 'danse', 'littérature', 'chanson', 'peinture']
-    },
-    'B3_intel_appearance': {
-        'X': ['brillant','brillante', 'intelligent', 'intelligente', 'stratège', 'cerveau', 'sage', 'lucide', 'génie'],
-        'Y': ['beau', 'belle', 'mince', 'moche', 'laid', 'laide', 'joli', 'jolie', 'maigre', 'gros', 'grosse', 'corps']
-    },
-    'B4_strength_weakness': {
-        'X': ['confiant','confiante', 'puissant', 'puissante', 'force', 'dominat', 'dominante', 'fort', 'forte'],
-        'Y': ['faible', 'fragile', 'timide' , 'doux' ,'douce', 'sensible', 'soumis', 'soumise', 'peur', 'vulnérable']
-    },
-    'B5_status_love': {
-        'X': ['oseille', 'thune', 'francs', 'euros', 'dollars', 'bijoux', 'marques', 'luxe', 'rolex', 'chaine', 'fric'],
-        'Y': ['amour', 'sentiments', 'cœur', 'passion', 'fidèle', 'romantique', 'relation', 'aimer', 'émotions', 'attachement']
-    }
-}
-
 class GenderBiasWEATAnalyser:
     def __init__(self, embeddings, embedding_dimension = None):
         """
