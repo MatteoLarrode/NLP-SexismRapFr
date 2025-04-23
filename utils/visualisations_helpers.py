@@ -425,41 +425,15 @@ def display_gender_bias_compact_table(df, models=None, highlight_significant=Tru
     
     return markdown_table
 
-def plot_gender_bias(df, figsize=(12, 8), marker_size=100, p_threshold=0.05, 
+def plot_gender_bias(df, figsize=(14, 9), marker_size=100, p_threshold=0.05, 
                     significant_marker='*', show_legend=True, save_path=None):
     """
-    Create a plot visualizing gender bias effect sizes across categories with significance markers.
-    
-    Parameters:
-    -----------
-    df : pandas.DataFrame
-        DataFrame containing gender bias analysis results with p-values and effect sizes
-    figsize : tuple, optional
-        Figure size (width, height) in inches.
-    marker_size : int, optional
-        Base size for markers.
-    p_threshold : float, optional
-        P-value threshold for significance indication. Default is 0.05.
-    significant_marker : str, optional
-        Marker to use for significant results.
-    show_legend : bool, optional
-        Whether to show the legend.
-        
-    Returns:
-    --------
-    fig : matplotlib.figure.Figure
-        The figure object with the plot.
+    Plot gender bias effect sizes across categories with corpus/dim/algo encoding.
     """
-    # Create a copy of the dataframe
     raw_df = df.copy()
-    
-    # Extract model names from the index
     model_names = raw_df.index.tolist()
-    
-    # Get bias categories
     bias_categories = raw_df.columns.tolist()
-    
-    # Create a more detailed mapping for plot title
+
     category_descriptions = {
         'B1_career_family': 'Male-Career, Female-Family',
         'B2_mathsci_arts': 'Male-Math/Science, Female-Arts',
@@ -467,153 +441,117 @@ def plot_gender_bias(df, figsize=(12, 8), marker_size=100, p_threshold=0.05,
         'B4_strength_weakness': 'Male-Strength, Female-Weakness',
         'B5_status_love': 'Male-Status, Female-Love'
     }
-    
-    # Extract data for plotting
+
+    # Mappings
+    corpus_color_map = {
+        'frRap': '#E76F51',
+        'frWiki': '#2A9D8F',
+        'frWac': '#264653'
+    }
+    dim_marker_map = {
+        '100': '^',
+        '200': 'o',
+        '1000': 's'
+    }
+    algo_edge_map = {
+        'CBOW': 'black',
+        'Skip-gram': 'none'
+    }
+
+    def extract_metadata(model_name):
+        corpus = next((c for c in corpus_color_map if c in model_name), 'Other')
+        dim_match = re.search(r'_(\d+)_', model_name)
+        dim = dim_match.group(1) if dim_match else '200'
+        algo = 'CBOW' if 'cbow' in model_name.lower() else 'Skip-gram'
+        return corpus, dim, algo
+
     plot_data = []
-    
     for model in model_names:
         for category in bias_categories:
             cell_value = raw_df.loc[model, category]
-            
-            # Extract p-value and effect size using regex
             p_match = re.search(r"'p_value':\s*([\d.]+)", str(cell_value))
             es_match = re.search(r"'effect_size':\s*([-\d.]+)", str(cell_value))
-            
             if p_match and es_match:
                 p_value = float(p_match.group(1))
                 effect_size = float(es_match.group(1))
-                
-                # Add to plot data
+                corpus, dim, algo = extract_metadata(model)
                 plot_data.append({
                     'Model': model,
+                    'Corpus': corpus,
+                    'Dimension': dim,
+                    'Algorithm': algo,
                     'Category': category,
                     'Effect_Size': effect_size,
                     'P_Value': p_value,
                     'Significant': p_value < p_threshold
                 })
-    
-    # Convert to DataFrame for easier plotting
-    plot_df = pd.DataFrame(plot_data)
-    
-    # Set up the plot
-    fig, ax = plt.subplots(figsize=figsize)
-    
-    # Set up colors for different models
-    model_colors = sns.color_palette("Set2", len(model_names))
-    color_map = {model: model_colors[i] for i, model in enumerate(model_names)}
-    
-    # Set up markers for different models
-    markers = ['o', 's', 'D', '^', 'v', '<', '>', 'p', '*', 'h', 'H', '+', 'x', 'X', 'd']
-    marker_map = {model: markers[i % len(markers)] for i, model in enumerate(model_names)}
 
-    # First create a mapping to uniformly distribute points across each column
+    plot_df = pd.DataFrame(plot_data)
+
+    fig, ax = plt.subplots(figsize=figsize)
+
     position_map = {}
-    
-    # For each category, calculate positions
     for category in bias_categories:
-        # Get all models that have data for this category
-        models_in_category = []
-        for model in model_names:
-            model_data = plot_df[(plot_df['Model'] == model) & (plot_df['Category'] == category)]
-            if not model_data.empty:
-                models_in_category.append(model)
-        
-        # Calculate positions spread across the column
-        column_width = 0.8  # Width of the spread within column
+        models_in_category = plot_df[plot_df['Category'] == category]['Model'].unique().tolist()
+        column_width = 0.8
         n_models = len(models_in_category)
-        
         for i, model in enumerate(models_in_category):
-            # If only one model, center it
-            if n_models == 1:
-                offset = 0
-            # Otherwise, distribute evenly
-            else:
-                offset = column_width * (i / (n_models - 1) - 0.5)
-            
-            # Store the position
+            offset = 0 if n_models == 1 else column_width * (i / (n_models - 1) - 0.5)
             position_map[(category, model)] = offset
-    
-    # Now plot using the pre-calculated positions
-    for model in model_names:
-        model_data = plot_df[plot_df['Model'] == model]
-        
-        for idx, row in model_data.iterrows():
-            category = row['Category']
-            effect_size = row['Effect_Size']
-            significant = row['Significant']
-            
-            # Get the pre-calculated position offset
-            if (category, model) in position_map:
-                offset = position_map[(category, model)]
-            else:
-                offset = 0  # Fallback if no position calculated
-            
-            # Calculate final x-position
-            x_pos = bias_categories.index(category) + 1
-            x_jitter = x_pos + offset
-            
-            # Plot point - add label only once per model
-            if category == model_data['Category'].iloc[0]:
-                ax.scatter(x_jitter, effect_size, 
-                         color=color_map[model], 
-                         marker=marker_map[model],
-                         s=marker_size,
-                         alpha=0.8,
-                         label=model)
-            else:
-                ax.scatter(x_jitter, effect_size, 
-                         color=color_map[model], 
-                         marker=marker_map[model],
-                         s=marker_size,
-                         alpha=0.8)
-            
-            # Add significance marker if significant
-            if significant:
-                ax.scatter(x_jitter, effect_size, 
-                         marker=significant_marker, 
-                         s=marker_size/2, 
-                         color='black')
-    
-    # Add horizontal line at 0
+
+    # Plotting
+    set_visualization_style()
+
+    legend_labels_seen = set()
+    for _, row in plot_df.iterrows():
+        category = row['Category']
+        model = row['Model']
+        x_base = bias_categories.index(category) + 1
+        x_jitter = x_base + position_map.get((category, model), 0)
+        y = row['Effect_Size']
+
+        color = corpus_color_map[row['Corpus']]
+        marker = dim_marker_map[row['Dimension']]
+        edgecolor = algo_edge_map[row['Algorithm']]
+
+        label_str = f"{row['Corpus']} {row['Dimension']}D {row['Algorithm']}"
+        label = label_str if label_str not in legend_labels_seen else None
+        if label: legend_labels_seen.add(label)
+
+        ax.scatter(x_jitter, y,
+                   color=color, marker=marker, s=marker_size,
+                   edgecolor=edgecolor, linewidth=1.2,
+                   label=label, alpha=0.9)
+
+        if row['Significant']:
+            ax.scatter(x_jitter, y,
+                       marker=significant_marker, s=marker_size / 2,
+                       color='black', alpha=0.8)
+
+    # Styling
     ax.axhline(y=0, color='black', linestyle='--', alpha=0.5)
-    
-    # Add vertical lines to separate categories
     for i in range(len(bias_categories) - 1):
         ax.axvline(x=i + 1.5, color='black', linestyle='--', alpha=0.3)
-    
-    # Set the x-axis ticks and labels
+
     ax.set_xticks(range(1, len(bias_categories) + 1))
-    ax.set_xticklabels([category_descriptions[cat] for cat in bias_categories], fontsize=10)
-    
-    # Set the labels (no title)
-    ax.set_ylabel('WEAT Effect Size', fontsize=12)
-    
-    # Add note about significance marker
-    ax.text(0.02, 0.02, f"{significant_marker} = p < {p_threshold}", transform=ax.transAxes)
-    
-    # Add legend only for model markers if requested
+    ax.set_xticklabels([category_descriptions[cat] for cat in bias_categories], fontsize=12, rotation=15)
+
+    ax.set_ylabel('WEAT Effect Size', fontsize=14)
+    ax.text(0.02, 0.02, f"{significant_marker} = p < {p_threshold}", transform=ax.transAxes, fontsize=11)
+
     if show_legend:
-        # Get current handles and labels
         handles, labels = ax.get_legend_handles_labels()
-        
-        # Place the legend inside the figure at the top
-        legend = ax.legend(handles, labels, 
-                         title="Models", 
-                         loc='upper center', 
-                         bbox_to_anchor=(0.5, -0.05),
-                         ncol=3,  # Adjust the number of columns as needed
-                         frameon=True,
-                         fontsize=9)
-    
-    # Adjust layout
+        legend = ax.legend(handles, labels, title="Models",
+                           loc='upper center', bbox_to_anchor=(0.5, -0.1),
+                           ncol=3, fontsize=11, title_fontsize=12,
+                           frameon=True)
+
     plt.tight_layout()
 
-    # Save the figure if a save path is provided
-    if save_path is not None:
-        # Create directories if they don't exist
+    if save_path:
         import os
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
         print(f"Figure saved to {save_path}")
-    
+
     return fig
