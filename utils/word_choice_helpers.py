@@ -1,16 +1,17 @@
 # ========================================================================
 # === Helper functions for the choice of words (target and attributes) ===
 # ========================================================================
+import pandas as pd
 
 # Define the attribute and target word lists for French rap
 attribute_words = {
-    'M': ['homme', 'mec', 'gars', 'frère', 'il', 'père', 'papa', 'oncle', 'grand-père', 'bro', 'cousin'],
-    'F': ['femme', 'meuf', 'fille', 'sœur', 'elle', 'mère', 'maman', 'tante', 'grand-mère', 'miss', 'cousine']
+    'M': ['homme', 'mec', 'gars', 'frère', 'il', 'père', 'papa', 'oncle', 'bro', 'cousin'],
+    'F': ['femme', 'meuf', 'fille', 'sœur', 'elle', 'mère', 'maman', 'tante', 'miss', 'cousine']
 }
 
 target_words = {
     'B1_career_family': {
-        'X': ['business', 'patron', 'patronne', 'argent', 'money', 'travail', 'boss', 'cash', 'hustle', 'bureau', 'carrière'],
+        'X': ['business', 'patron', 'patronne', 'argent', 'money', 'travail', 'boss', 'cash', 'bureau', 'carrière'],
         'Y': ['foyer', 'parents', 'maison', 'enfant', 'enfants', 'famille', 'mariage', 'marier']
     },
     'B2_mathsci_arts': {
@@ -22,15 +23,14 @@ target_words = {
         'Y': ['beau', 'belle', 'mince', 'moche', 'laid', 'laide', 'joli', 'jolie', 'maigre', 'gros', 'grosse', 'corps']
     },
     'B4_strength_weakness': {
-        'X': ['confiant','confiante', 'confiance' , 'puissant', 'puissante', 'puissance',  'fort', 'forte', 'force', 'dominant', 'dominante', 'dominance'],
-        'Y': ['faible', 'fragile', 'timide' , 'doux' ,'douce', 'sensible', 'soumis', 'soumise',  'peur', 'vulnérable']
+        'X': ['puissant', 'puissante', 'puissance',  'fort', 'forte', 'force'],
+        'Y': ['faible', 'fragile' , 'doux' ,'douce', 'sensible', 'peur', 'vulnérable']
     }
 }
 
 # Gendered word pairs
 gendered_pairs = [
     ('patron', 'patronne'),
-    ('brilliant', 'brillante'),
     ('intelligent', 'intelligente'),
     ('beau', 'belle'),
     ('laid', 'laide'),
@@ -38,10 +38,7 @@ gendered_pairs = [
     ('gros', 'grosse'),
     ('fort', 'forte'),
     ('puissant', 'puissante'),
-    ('dominant', 'dominante'),
-    ('confiant', 'confiante'),
     ('doux', 'douce'),
-    ('soumis', 'soumise')
 ]
 
 def compare_gendered_word_similarities(models, gendered_pairs):
@@ -95,3 +92,143 @@ def compare_gendered_word_similarities(models, gendered_pairs):
     
     return df
 
+def check_rap_frequencies(corpus, all_words):
+    """
+    Check frequency of words in the rap corpus.
+    
+    Parameters:
+    -----------
+    corpus : list or DataFrame
+        The rap corpus (adapts to format)
+    all_words : list
+        List of words to check
+        
+    Returns:
+    --------
+    DataFrame
+        Words and their frequencies
+    """
+    # Initialize results
+    results = []
+    
+    # Handle different corpus formats
+    if isinstance(corpus, pd.DataFrame):
+        # DataFrame format
+        for word in all_words:
+            # Check if word exists in corpus
+            exists = word in corpus.columns
+            
+            # Get frequency if exists
+            if exists:
+                frequency = corpus[word].sum()
+            else:
+                frequency = 0
+                
+            results.append({
+                'word': word,
+                'in_corpus': exists,
+                'frequency': frequency
+            })
+    elif isinstance(corpus, list):
+        # List format (assuming list of documents/songs)
+        from collections import Counter
+        
+        # Count all words in the corpus
+        word_counts = Counter()
+        for document in corpus:
+            # Handle different document formats (str, list, dict)
+            if isinstance(document, str):
+                # Split string into words
+                words = document.lower().split()
+                word_counts.update(words)
+            elif isinstance(document, list):
+                # Already a list of words
+                word_counts.update([w.lower() if isinstance(w, str) else w for w in document])
+            elif isinstance(document, dict):
+                # Dictionary with word counts
+                word_counts.update(document)
+        
+        # Check each target word
+        for word in all_words:
+            # Case-insensitive check
+            word_lower = word.lower()
+            exists = word_lower in word_counts
+            frequency = word_counts.get(word_lower, 0)
+            
+            results.append({
+                'word': word,
+                'in_corpus': exists,
+                'frequency': frequency
+            })
+    else:
+        raise TypeError("Corpus must be a DataFrame or a list")
+    
+    # Convert to DataFrame and sort by frequency
+    df = pd.DataFrame(results)
+    df = df.sort_values('frequency', ascending=False)
+    
+    return df
+
+def check_model_existence(models, all_words):
+    """
+    Check if words exist in each model.
+    
+    Parameters:
+    -----------
+    models : dict
+        Dictionary of models {name: model}
+    all_words : list
+        List of words to check
+        
+    Returns:
+    --------
+    DataFrame
+        Words and their existence in each model
+    """
+    import pandas as pd
+    
+    # Initialize results
+    results = []
+    
+    for word in all_words:
+        result = {'word': word}
+        
+        # Check each model
+        for model_name, model in models.items():
+            # Get embeddings
+            if hasattr(model, 'wv'):
+                embeddings = model.wv
+            else:
+                embeddings = model
+                
+            # Check if word exists
+            if hasattr(embeddings, 'key_to_index'):
+                result[model_name] = word in embeddings.key_to_index
+            elif isinstance(embeddings, dict):
+                result[model_name] = word in embeddings
+            else:
+                result[model_name] = False
+                
+        results.append(result)
+    
+    # Convert to DataFrame
+    df = pd.DataFrame(results)
+    
+    return df
+
+# Collect all words
+def get_all_words(attribute_words, target_words):
+    """Get all unique words from attribute and target word sets"""
+    all_words = []
+    
+    # Add attribute words
+    for words in attribute_words.values():
+        all_words.extend(words)
+        
+    # Add target words
+    for category in target_words.values():
+        for words in category.values():
+            all_words.extend(words)
+            
+    # Return unique words
+    return list(set(all_words))

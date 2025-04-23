@@ -329,7 +329,7 @@ def plot_gendered_similarity_by_pair(similarity_df, top_n=None, save_path=None):
     plt.axhline(y=0.5, color='red', linestyle='--', alpha=0.7, label='0.5 threshold')
     
     # Adjust legend
-    plt.legend(title='Model', bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.legend(title='Model', loc='upper right', frameon=True, facecolor='white', edgecolor='black')
     
     plt.tight_layout()
     
