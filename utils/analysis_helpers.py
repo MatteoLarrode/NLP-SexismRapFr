@@ -357,7 +357,7 @@ class GenderBiasWEATAnalyser:
         categories: List[str] = None,
         n_permutations: int = 1000,
         save_path: Optional[str] = None,
-        figsize: Tuple[int, int] = (15, 10),
+        figsize: Tuple[int, int] = (12, 10),
         kde: bool = True,
         hist: bool = True,
         significance_level: float = 0.05):
@@ -390,10 +390,10 @@ class GenderBiasWEATAnalyser:
         if categories is None:
             categories = list(target_words.keys())
         
-        # Determine grid layout
+        # Fixed 2x2 grid layout
         n_categories = len(categories)
-        n_cols = min(3, n_categories)
-        n_rows = (n_categories + n_cols - 1) // n_cols
+        n_cols = 2
+        n_rows = 2
         
         # Create figure
         fig = plt.figure(figsize=figsize)
@@ -407,6 +407,9 @@ class GenderBiasWEATAnalyser:
         
         # Process each category
         for i, category in enumerate(categories):
+            if i >= n_rows * n_cols:
+                break  # Only process the first 4 categories for 2x2 grid
+                
             # Get row and column for subplot
             row = i // n_cols
             col = i % n_cols
@@ -463,8 +466,31 @@ class GenderBiasWEATAnalyser:
             ax.axvline(x=observed_stat, color=line_color, linestyle='-', linewidth=2, 
                     label=f'Observed statistic\n(p={p_value:.3f}, {significant})')
             
+            # Format the category name for cleaner display
+            if category == 'B1_career_family':
+                display_title = 'Career / Family (B1)'
+            elif category == 'B2_mathsci_arts':
+                display_title = 'Math/Science / Arts (B2)'
+            elif category == 'B3_intel_appearance':
+                display_title = 'Intelligence / Appearance (B3)'
+            elif category == 'B4_strength_weakness':
+                display_title = 'Strength / Weakness (B4)'
+            else:
+                # Try to format other category names similarly
+                parts = category.split('_')
+                if len(parts) >= 2 and parts[0].startswith('B'):
+                    # Extract B number and remaining parts
+                    b_number = parts[0]
+                    if len(parts) == 3:  # Format like B1_career_family
+                        display_title = f"{parts[1].capitalize()} / {parts[2].capitalize()} ({b_number})"
+                    else:
+                        # Just use cleaned up version of original
+                        display_title = ' '.join(parts[1:]).capitalize() + f" ({b_number})"
+                else:
+                    display_title = category
+            
             # Update plot title and labels
-            ax.set_title(f'{category}', fontsize=12, fontweight='bold')
+            ax.set_title(display_title, fontsize=12, fontweight='bold')
             ax.set_xlabel('Test Statistic', fontsize=12)
             if col == 0:  # Only add y-label for leftmost plots
                 ax.set_ylabel('Density', fontsize=12)
@@ -477,20 +503,21 @@ class GenderBiasWEATAnalyser:
                 max_density = ax.get_ylim()[1]
         
         # Set consistent y-axis limits
-        for i in range(n_categories):
+        for i in range(min(n_categories, n_rows * n_cols)):
             ax = fig.axes[i]
             ax.set_ylim(0, max_density * 1.1)
         
         # Add data description at bottom
         n_permutations_text = f'Based on {n_permutations} permutations per category'
-        fig.text(0.5, 0.01, n_permutations_text, ha='center', fontsize=12)
+        fig.text(0.5, 0.01, n_permutations_text, ha='center', fontsize=10)
         
         # Adjust layout
-        plt.tight_layout(rect=[0, 0.02, 1, 0.92])
+        plt.tight_layout(rect=[0, 0.03, 1, 0.97])
         
         # Save
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        print(f"Figure saved to {save_path}")
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            print(f"Figure saved to {save_path}")
         
         plt.close()
         

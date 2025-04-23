@@ -425,8 +425,7 @@ def display_gender_bias_compact_table(df, models=None, highlight_significant=Tru
     
     return markdown_table
 
-def plot_gender_bias(df, figsize=(14, 9), marker_size=100, p_threshold=0.05, 
-                    significant_marker='*', show_legend=True, save_path=None):
+def plot_gender_bias(df, figsize=(12, 8), marker_size=100, show_legend=True, save_path=None):
     """
     Plot gender bias effect sizes across categories with corpus/dim/algo encoding.
     """
@@ -444,9 +443,9 @@ def plot_gender_bias(df, figsize=(14, 9), marker_size=100, p_threshold=0.05,
 
     # Mappings
     corpus_color_map = {
-        'frRap': '#E76F51',
-        'frWiki': '#2A9D8F',
-        'frWac': '#264653'
+        'frRap': '#4DA0E7',
+        'frWiki': '#F3CA40',
+        'frWac': '#5DD39E'
     }
     dim_marker_map = {
         '100': '^',
@@ -469,10 +468,8 @@ def plot_gender_bias(df, figsize=(14, 9), marker_size=100, p_threshold=0.05,
     for model in model_names:
         for category in bias_categories:
             cell_value = raw_df.loc[model, category]
-            p_match = re.search(r"'p_value':\s*([\d.]+)", str(cell_value))
             es_match = re.search(r"'effect_size':\s*([-\d.]+)", str(cell_value))
-            if p_match and es_match:
-                p_value = float(p_match.group(1))
+            if es_match:
                 effect_size = float(es_match.group(1))
                 corpus, dim, algo = extract_metadata(model)
                 plot_data.append({
@@ -482,11 +479,11 @@ def plot_gender_bias(df, figsize=(14, 9), marker_size=100, p_threshold=0.05,
                     'Algorithm': algo,
                     'Category': category,
                     'Effect_Size': effect_size,
-                    'P_Value': p_value,
-                    'Significant': p_value < p_threshold
                 })
 
     plot_df = pd.DataFrame(plot_data)
+
+    set_visualization_style()
 
     fig, ax = plt.subplots(figsize=figsize)
 
@@ -523,11 +520,6 @@ def plot_gender_bias(df, figsize=(14, 9), marker_size=100, p_threshold=0.05,
                    edgecolor=edgecolor, linewidth=1.2,
                    label=label, alpha=0.9)
 
-        if row['Significant']:
-            ax.scatter(x_jitter, y,
-                       marker=significant_marker, s=marker_size / 2,
-                       color='black', alpha=0.8)
-
     # Styling
     ax.axhline(y=0, color='black', linestyle='--', alpha=0.5)
     for i in range(len(bias_categories) - 1):
@@ -537,12 +529,25 @@ def plot_gender_bias(df, figsize=(14, 9), marker_size=100, p_threshold=0.05,
     ax.set_xticklabels([category_descriptions[cat] for cat in bias_categories], fontsize=12, rotation=15)
 
     ax.set_ylabel('WEAT Effect Size', fontsize=14)
-    ax.text(0.02, 0.02, f"{significant_marker} = p < {p_threshold}", transform=ax.transAxes, fontsize=11)
 
     if show_legend:
         handles, labels = ax.get_legend_handles_labels()
-        legend = ax.legend(handles, labels, title="Models",
-                           loc='upper center', bbox_to_anchor=(0.5, -0.1),
+        # Pair and sort legend entries: first by corpus, then dimension, then algorithm
+        legend_tuples = list(zip(labels, handles))
+        def legend_sort_key(x):
+            label = x[0]
+            parts = label.split()
+            corpus_order = {'frRap': 0, 'frWiki': 1, 'frWac': 2}
+            corpus = parts[0]
+            dim = int(parts[1][:-1])  # e.g. '200D' -> 200
+            algo = 0 if parts[2] == 'CBOW' else 1  # CBOW first
+            return (corpus_order.get(corpus, 99), dim, algo)
+
+        legend_tuples.sort(key=legend_sort_key)
+        sorted_labels, sorted_handles = zip(*legend_tuples)
+
+        legend = ax.legend(sorted_handles, sorted_labels, title="Models",
+                           loc='upper center', bbox_to_anchor=(0.5, -0.2),
                            ncol=3, fontsize=11, title_fontsize=12,
                            frameon=True)
 
