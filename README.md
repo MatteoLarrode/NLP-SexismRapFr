@@ -34,7 +34,40 @@ NLP-SexismRapFr/
 │   ├── 01_data_collection_preprocessing.ipynb  # Data collection and preprocessing, and downloading of off-the-shelf embeddings
 │   ├── 02_model_training.ipynb                  # Model training (creation of word embeddings)
 │   ├── 03_word_embeddings_validation.ipynb      # Validation of word embeddings
-│   ├── 04_gender_bias_analysis.ipynb            # Analysis of gender bias
+│   └── 04_gender_bias_analysis.ipynb            # Analysis of gender bias
 │
 └── environment.yml        # Conda environment dependencies
 ```
+
+## Installation
+
+To set up the project environment:
+
+```
+# Clone the repository
+git clone [link to this github page]
+cd NLP-SexismRapFr
+
+# Create conda environment from the environment.yml file
+conda env create -f environment.yml
+
+# Activate the environment
+conda activate nlp-summative
+```
+
+## Replication
+
+The entire study -- including visualisations and analysis -- is replicable step-by-step by simply using the notebooks.
+Notably, the models could not be uploaded to Github, as they were too large. 
+
+1. Start with `01_data_collection_preprocessing.ipynb`. The rap lyrics cleaning is optional, as the preprocessed corpus was pickled in `data/processed_lyrics.pkl`. However, the downloading of off-the-shelf embeddings of general French text is necessary for the replication. 
+
+2. Continue with `02_model_training.ipynb` to train the word embeddings, using Word2Vec, on the processed rap lyrics corpus.
+
+3. Explore `03_word_embeddings_validation.ipynb` to replicate the evaluation of all embeddings used in the project.
+
+4. Replicate the WEAT experiment in `04_gender_bias_analysis.ipynb`
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
