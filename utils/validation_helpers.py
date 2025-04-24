@@ -382,7 +382,7 @@ def validate_models_similarity_task(models, show_plot=True):
         pd.DataFrame: DataFrame with similarity results for all models
     """    
     # Load similarity dataset
-    similarity_dict = create_similarity_dict("data/wordsim353-fr.csv")
+    similarity_dict = create_similarity_dict("../data/wordsim353-fr.csv")
     
     # Results list for all models
     results_list = []
@@ -399,7 +399,7 @@ def validate_models_similarity_task(models, show_plot=True):
         
         # Plot correlation if valid
         if pearson_corr is not None:
-            plot_similarity_correlation(result_dict, save_path=f"figs/similarity_corr/{model_name}_similarity_correlation.png", show_plot=show_plot)
+            plot_similarity_correlation(result_dict, save_path=f"../figs/similarity_corr/{model_name}_similarity_correlation.png", show_plot=show_plot)
         
         # Add to results list
         results_list.append({
@@ -591,7 +591,7 @@ def save_correct_analogies(correct_analogies, save_file):
     
     print(f"Saved correct analogies to {save_file}")
 
-def validate_models_analogy_task(models, save_correct=False, results_dir="results"):
+def validate_models_analogy_task(models, save_correct=False, results_dir="../results"):
     """
     WRAPPER: Evaluate word embeddings using the analogy test.
     Works with a single model or a dictionary of models.
