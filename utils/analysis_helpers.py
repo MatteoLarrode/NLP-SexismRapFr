@@ -7,9 +7,8 @@ from gensim.models import Word2Vec, KeyedVectors
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
-from scipy import stats
 import seaborn as sns
-from typing import List, Dict, Union, Optional, Tuple
+from typing import List, Dict, Optional, Tuple
 
 from utils.word_choice_helpers import attribute_words, target_words
 

@@ -7,9 +7,6 @@ import matplotlib.font_manager as font_manager
 import re
 import seaborn as sns
 import pandas as pd
-from scipy import stats
-import numpy as np
-from typing import Dict, List, Union, Optional, Tuple
 from IPython.display import display, Markdown
 
 def set_visualization_style():

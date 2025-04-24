@@ -8,7 +8,6 @@ import re
 import nltk
 import pandas as pd
 import numpy as np
-from nltk.tokenize import word_tokenize
 from gensim.utils import simple_preprocess
 from lingua import Language, LanguageDetectorBuilder
 import spacy

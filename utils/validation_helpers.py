@@ -13,7 +13,6 @@ from tqdm import tqdm
 from collections import defaultdict
 from sklearn.cluster import KMeans
 from sklearn.manifold import TSNE
-import matplotlib.colors as mcolors
 from adjustText import adjust_text
 from nltk.corpus import stopwords
 
