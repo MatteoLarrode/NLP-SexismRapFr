@@ -57,8 +57,8 @@ conda activate nlp-summative
 
 ## Replication
 
-The entire study -- including visualisations and analysis -- is replicable step-by-step by simply using the notebooks.
-Notably, the models could not be uploaded to Github, as they were too large. 
+The entire study, including visualisations and analysis, is replicable step-by-step by simply using the notebooks.
+The models were too large to be uploaded to Github, so the notebooks offer all the necessary code to train them in the same conditions as in the study.
 
 1. Start with `01_data_collection_preprocessing.ipynb`. The rap lyrics cleaning is optional, as the preprocessed corpus was pickled in `data/processed_lyrics.pkl`. However, the downloading of off-the-shelf embeddings of general French text is necessary for the replication. 
 
